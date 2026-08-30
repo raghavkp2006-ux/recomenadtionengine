@@ -1,3 +1,26 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="options.css"><title>PolyTaste for Myntra settings</title></head>
-<body><main><h1>PolyTaste for Myntra settings</h1><label>Backend URL <input id="backendBaseUrl" type="url" placeholder="http://localhost:8000"></label><label><input id="debug" type="checkbox"> Enable parser debug information</label><button id="save">Save settings</button><p id="result" aria-live="polite"></p><h2>Privacy</h2><p>The extension sends only enabled, normalized page activity to your configured PolyTaste backend. It never reads passwords, cookies, payment information, access tokens, or private Myntra APIs.</p></main><script type="module" src="options.js"></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="options.css">
+  <title>PolyTaste for Myntra settings</title>
+</head>
+<body>
+  <main>
+    <h1>PolyTaste for Myntra settings</h1>
+    <label>
+      Backend URL
+      <input id="backendBaseUrl" type="url" placeholder="http://localhost:8000">
+    </label>
+    <label>
+      <input id="debug" type="checkbox"> Enable parser debug information
+    </label>
+    <button id="save">Save settings</button>
+    <p id="result" aria-live="polite"></p>
+    <h2>Privacy</h2>
+    <p>The extension sends only enabled, normalized page activity to your configured PolyTaste backend. It never reads passwords, cookies, payment information, access tokens, or private Myntra APIs.</p>
+  </main>
+  <script type="module" src="options.js"></script>
+</body>
+</html>

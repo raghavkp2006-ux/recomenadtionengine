@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "permissions": ["storage", "alarms", "downloads"],
   "host_permissions": ["https://www.myntra.com/*"],
-  "optional_host_permissions": ["http://localhost:8000/*"],
+  "optional_host_permissions": ["http://localhost:8000/*", "https://polytaste-backend.onrender.com/*"],
   "background": { "service_worker": "src/background/service-worker.js", "type": "module" },
   "action": { "default_popup": "src/popup/popup.html", "default_title": "PolyTaste for Myntra" },
   "options_page": "src/options/options.html",

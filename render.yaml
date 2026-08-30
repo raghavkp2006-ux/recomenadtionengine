@@ -9,6 +9,8 @@ services:
         fromDatabase:
           name: polytaste-db
           property: connectionString
+      - key: ALLOWED_ORIGINS
+        value: https://polytaste-frontend.onrender.com,chrome-extension://ehicjjjefimefanmlleacjhdmbfnobel
 
   - type: web
     name: polytaste-frontend
