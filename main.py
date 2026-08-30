@@ -1,10 +1,15 @@
 import os
+import logging
+import time
+import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, Response, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from database import get_dynamodb_resource, init_db
-from routers import google_auth, spotify, spotify_import, anime, taste, anilist, connections, tourist_spots, movie, dining
+from routers import google_auth, spotify, spotify_import, anime, taste, anilist, connections, tourist_spots, movie, dining, myntra
 from services.auth import get_current_user_id, create_session_cookie
 from services.spotify_scheduler import start_scheduler, stop_scheduler
 from pydantic import BaseModel
@@ -27,6 +32,41 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Multi-Module Recommendation App", lifespan=lifespan)
+logger = logging.getLogger("myntra")
+
+
+@app.middleware("http")
+async def myntra_request_logging(request: Request, call_next):
+    if not request.url.path.startswith("/myntra"):
+        return await call_next(request)
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    request.state.myntra_request_id = request_id
+    started = time.perf_counter()
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    logger.info("myntra_request request_id=%s route=%s status_code=%s duration_ms=%d", request_id, request.url.path, response.status_code, (time.perf_counter() - started) * 1000)
+    return response
+
+
+def _myntra_error(request: Request, status_code: int, code: str, message: str, details: dict | None = None):
+    """Stable extension error contract without changing unrelated API routes."""
+    request_id = getattr(request.state, "myntra_request_id", None) or request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    return JSONResponse(status_code=status_code, content={"error": {"code": code, "message": message, "request_id": request_id, "details": details or {}}}, headers={"X-Request-ID": request_id})
+
+
+@app.exception_handler(HTTPException)
+async def myntra_http_error(request: Request, exc: HTTPException):
+    if request.url.path.startswith("/myntra"):
+        code = {401: "MYNTRA_NOT_CONNECTED", 409: "MYNTRA_DUPLICATE_EVENT", 429: "MYNTRA_RATE_LIMITED"}.get(exc.status_code, "MYNTRA_REQUEST_FAILED")
+        return _myntra_error(request, exc.status_code, code, str(exc.detail))
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=getattr(exc, "headers", None))
+
+
+@app.exception_handler(RequestValidationError)
+async def myntra_validation_error(request: Request, exc: RequestValidationError):
+    if request.url.path.startswith("/myntra"):
+        return _myntra_error(request, 422, "MYNTRA_EVENT_VALIDATION_ERROR", "Request validation failed", {"errors": exc.errors()})
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
@@ -54,6 +94,7 @@ app.include_router(anilist.router)
 app.include_router(connections.router)
 app.include_router(tourist_spots.router)
 app.include_router(dining.router)
+app.include_router(myntra.router)
 
 @app.get("/")
 def read_root():

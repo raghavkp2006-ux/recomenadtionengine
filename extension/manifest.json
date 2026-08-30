@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "PolyTaste for Myntra",
+  "description": "User-controlled Myntra activity sync for PolyTaste recommendations.",
+  "version": "1.0.0",
+  "permissions": ["storage", "alarms", "downloads"],
+  "host_permissions": ["https://www.myntra.com/*"],
+  "optional_host_permissions": ["http://localhost:8000/*"],
+  "background": { "service_worker": "src/background/service-worker.js", "type": "module" },
+  "action": { "default_popup": "src/popup/popup.html", "default_title": "PolyTaste for Myntra" },
+  "options_page": "src/options/options.html",
+  "content_scripts": [
+    {
+      "matches": ["https://www.myntra.com/*"],
+      "js": ["src/content/myntra-content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

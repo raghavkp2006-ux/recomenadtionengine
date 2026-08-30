@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Myntra event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "platform", "event_type", "occurred_at", "extension_version"],
+  "properties": {
+    "event_id": {"type": "string", "format": "uuid"},
+    "platform": {"const": "myntra"},
+    "event_type": {"type": "string"},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "extension_version": {"type": "string", "minLength": 1}
+  }
+}

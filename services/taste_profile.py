@@ -523,6 +523,18 @@ def compute_taste_profile(
     anime_profile = _anime_genre_signal(user_id)
     anilist_profile = _anilist_genre_signal(user_id)
     movie_profile = _movie_signal(user_id)
+    # Myntra is a separate structured preference namespace: clothing signals
+    # must not be incorrectly mixed into media genre weights.
+    try:
+        from database import get_db
+        from services.myntra_profile import get_profile as get_myntra_profile
+        db = next(get_db())
+        try:
+            myntra_profile = get_myntra_profile(db, user_id)
+        finally:
+            db.close()
+    except Exception:
+        myntra_profile = {}
 
     merged = _merge_profiles(spotify_profile, anime_profile, anilist_profile, movie_profile)
 
@@ -584,6 +596,7 @@ def compute_taste_profile(
             "anime": anime_profile,
             "anilist": anilist_profile,
             "movie": movie_profile,
+            "myntra": myntra_profile,
         },
         "anilist_watched": anilist_watched,
         "crosswalk_anime": crosswalk_anime,

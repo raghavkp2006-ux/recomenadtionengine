@@ -6,6 +6,10 @@ A FastAPI application deployed to Azure Web App, providing content-based and cro
 
 ## Modules
 
+### Myntra
+
+User-controlled Myntra page activity integration. See [the extension README](extension/README.md), [API reference](docs/myntra-api.md), and [architecture](docs/myntra-architecture.md). It uses page-visible/structured data only and never accesses cookies or private Myntra endpoints.
+
 ### Auth / Session
 
 The app uses a signed cookie session for authentication, established via Google Sign-In (keyed on `google_sub`). Spotify and AniList are optional secondary connections linked to this primary Google session to pull listening/watch data into the taste profile. They do not create or overwrite the session on their own.

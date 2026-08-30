@@ -30,7 +30,9 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Boolean, UniqueConstraint, ForeignKey, text, func, inspect
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker, relationship
+from models.base import Base
+from models.myntra import MyntraConnection, MyntraEvent, MyntraFeedback, MyntraProduct, MyntraProfile
 
 load_dotenv()
 
@@ -46,7 +48,6 @@ else:
     )
     _engine = create_engine(f"sqlite:///{_DB_PATH}", connect_args={"check_same_thread": False})
 engine = _engine
-Base = declarative_base()
 
 class SpotifyUser(Base):  # type: ignore[valid-type]
     """ORM model for local-dev SQLite user-token storage."""
