@@ -16,6 +16,7 @@ import { Card, LineRail } from "./components/interchange"
 import { ThemeProvider } from "./components/ui/ThemeProvider"
 import { ThemeToggleButton } from "./components/ui/ThemeToggleButton"
 import { TouristSpotsPage } from "./pages/TouristSpotsPage"
+import { MyntraPage } from "./pages/MyntraPage"
 import { SignalCard, DOMAIN } from "./components/dashboard/RecommendationRow"
 import type { PageId } from "./types"
 
@@ -166,14 +167,14 @@ function DashboardLayout({
   const [currentPage,    setCurrentPage]    = useState<PageId>("home")
   const [selectedAnime,  setSelectedAnime]  = useState<any | null>(null)
   const [collapsed,      setCollapsed]      = useState(false)
-  const [connections,    setConnections]    = useState<{ spotify: boolean; anilist: boolean; location: boolean } | null>(null)
+  const [connections,    setConnections]    = useState<{ spotify: boolean; anilist: boolean; location: boolean; myntra: boolean } | null>(null)
 
   useEffect(() => {
     api.connections.getStatus()
       .then(setConnections)
       .catch((err) => {
         console.error("Failed to fetch connection status:", err)
-        setConnections({ spotify: false, anilist: false, location: false })
+        setConnections({ spotify: false, anilist: false, location: false, myntra: false })
       })
   }, [])
 
@@ -235,6 +236,11 @@ function DashboardLayout({
         {currentPage === "places" && (
           <PageWrapper title="Places">
             <TouristSpotsPage />
+          </PageWrapper>
+        )}
+        {currentPage === "myntra" && (
+          <PageWrapper title="Fashion">
+            <MyntraPage />
           </PageWrapper>
         )}
         {currentPage === "profile" && (

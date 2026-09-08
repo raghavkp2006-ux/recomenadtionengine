@@ -61,4 +61,4 @@ export interface ActivityItem {
 
 // ── Navigation ──────────────────────────────────────────────────────
 
-export type PageId = "home" | "anime" | "music" | "places" | "profile" | "settings"
+export type PageId = "home" | "anime" | "music" | "places" | "profile" | "settings" | "myntra"

@@ -120,7 +120,80 @@ export const api = {
   },
   connections: {
     getStatus: () =>
-      fetchApi<{ spotify: boolean; anilist: boolean; location: boolean }>("/connections/status"),
+      fetchApi<{ spotify: boolean; anilist: boolean; location: boolean; myntra: boolean }>("/connections/status"),
+  },
+  myntra: {
+    getConnection: () =>
+      fetchApi<{
+        enabled: boolean
+        collect_product_views: boolean
+        collect_search: boolean
+        collect_wishlist: boolean
+        collect_cart: boolean
+        collect_orders: boolean
+      }>("/myntra/connection"),
+    updateConnection: (
+      payload: Partial<{
+        enabled: boolean
+        collect_product_views: boolean
+        collect_search: boolean
+        collect_wishlist: boolean
+        collect_cart: boolean
+        collect_orders: boolean
+      }>
+    ) =>
+      fetchApi<{
+        enabled: boolean
+        collect_product_views: boolean
+        collect_search: boolean
+        collect_wishlist: boolean
+        collect_cart: boolean
+        collect_orders: boolean
+      }>("/myntra/connection", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+    getProfile: () => fetchApi<any>("/myntra/profile"),
+    getRecommendations: (params?: {
+      limit?: number
+      category?: string
+      min_price?: number
+      max_price?: number
+      brand?: string
+    }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.limit !== undefined) searchParams.append("limit", String(params.limit))
+      if (params?.category) searchParams.append("category", params.category)
+      if (params?.min_price !== undefined) searchParams.append("min_price", String(params.min_price))
+      if (params?.max_price !== undefined) searchParams.append("max_price", String(params.max_price))
+      if (params?.brand) searchParams.append("brand", params.brand)
+      const qs = searchParams.toString() ? `?${searchParams.toString()}` : ""
+      return fetchApi<{ recommendations: any[] }>(`/myntra/recommendations${qs}`)
+    },
+    getHistory: (params?: {
+      limit?: number
+      offset?: number
+      event_type?: string
+      product_id?: string
+      brand?: string
+      category?: string
+    }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.limit !== undefined) searchParams.append("limit", String(params.limit))
+      if (params?.offset !== undefined) searchParams.append("offset", String(params.offset))
+      if (params?.event_type) searchParams.append("event_type", params.event_type)
+      if (params?.product_id) searchParams.append("product_id", params.product_id)
+      if (params?.brand) searchParams.append("brand", params.brand)
+      if (params?.category) searchParams.append("category", params.category)
+      const qs = searchParams.toString() ? `?${searchParams.toString()}` : ""
+      return fetchApi<{ total: number; limit: number; offset: number; events: any[] }>(`/myntra/history${qs}`)
+    },
+    submitFeedback: (product_id: string, feedback: string) =>
+      fetchApi<{ product_id: string; feedback: string }>("/myntra/feedback", {
+        method: "POST",
+        body: JSON.stringify({ product_id, feedback }),
+      }),
+    exportCsvUrl: `${API_BASE}/myntra/export.csv`,
   },
   touristSpots: {
     getAll: (category?: string, price_tier?: string) => {
