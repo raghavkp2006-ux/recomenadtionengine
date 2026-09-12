@@ -274,3 +274,7 @@ export function Tooltip({ content, children, className, ...props }: TooltipProps
     </div>
   )
 }
+
+// ── Re-export ChromaGrid ─────────────────────────────────────────────
+export { ChromaGrid } from "./ui/ChromaGrid"
+export type { ChromaItem, ChromaGridProps } from "./ui/ChromaGrid"
