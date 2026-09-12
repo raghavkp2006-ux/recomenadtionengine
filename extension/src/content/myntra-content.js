@@ -7,7 +7,14 @@ const [{ getSettings }, { getPageType }, { parseProduct }, { parseSearch }, { pa
 let lastSignature = "";
 let timer;
 let activeProduct = null;
-function emit(event) { if (!isDuplicate(event)) chrome.runtime.sendMessage({ type: "MYNTRA_EVENT", event }); }
+function emit(event) {
+  if (isDuplicate(event)) return;
+  try {
+    chrome.runtime.sendMessage({ type: "MYNTRA_EVENT", event });
+  } catch {
+    // Extension context invalidated (stale tab after reload) — drop silently.
+  }
+}
 function dwellBucket(seconds) {
   if (seconds < 5) return "very_short";
   if (seconds < 20) return "short";

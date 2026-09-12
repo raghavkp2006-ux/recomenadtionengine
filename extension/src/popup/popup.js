@@ -10,7 +10,13 @@ async function render() {
   const syncState = await getSyncState();
   fields.forEach((name) => { document.querySelector(`#${name}`).checked = settings[name]; });
   document.querySelector("#pending").textContent = `Events pending: ${syncState.pending}`;
-  status.textContent = syncState.lastError ? `Connection: ${syncState.lastError}` : `Last sync: ${syncState.lastSyncAt || "Not yet"}`;
+  const origin = new URL(settings.backendBaseUrl).origin;
+  const hasPermission = await chrome.permissions.contains({ origins: [`${origin}/*`] });
+  if (!hasPermission) {
+    status.textContent = "Backend permission not granted yet — click Sync once to enable automatic syncing.";
+  } else {
+    status.textContent = syncState.lastError ? `Connection: ${syncState.lastError}` : `Last sync: ${syncState.lastSyncAt || "Not yet"}`;
+  }
 }
 
 const connectionPayload = (settings) => ({

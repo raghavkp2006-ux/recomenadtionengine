@@ -1,6 +1,6 @@
 export const DEFAULT_SETTINGS = Object.freeze({
   enabled: false,
-  backendBaseUrl: "http://localhost:8000",
+  backendBaseUrl: "https://recomenadtionengine-api.onrender.com",
   collectProductViews: true,
   collectSearch: true,
   collectWishlist: true,
