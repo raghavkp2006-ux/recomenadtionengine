@@ -1,4 +1,4 @@
-import { Clock, Tv, Music, MapPin, History } from "lucide-react"
+import { Clock, Tv, Music, MapPin, History, Film } from "lucide-react"
 import { motion } from "framer-motion"
 import type { RecentItem, Category } from "../../types"
 import { Card } from "../interchange"
@@ -7,6 +7,7 @@ const CATEGORY_ICONS: Record<Category, React.ElementType> = {
   anime:      Tv,
   music:      Music,
   places:     MapPin,
+  movie:      Film,
 }
 
 function timeAgo(isoDate: string): string {

@@ -11,6 +11,7 @@ import {
   LogOut,
   Layers,
   Fingerprint,
+  Film,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import type { PageId } from "../../types"
@@ -31,6 +32,7 @@ const navItems: NavItem[] = [
   { id: "anime",       label: "Anime",        icon: Tv,              color: "#4F9C8C" },
   { id: "music",       label: "Music",        icon: Music,           color: "#E8553F" },
   { id: "places",      label: "Places",       icon: Compass,         color: "#E3A857" },
+  { id: "movies",      label: "Movies",       icon: Film,            color: "#6366F1" },
   { id: "myntra",      label: "Fashion",      icon: ShoppingBag,     color: "#D946EF" },
   { id: "profile",     label: "Profile",      icon: Fingerprint,     color: "#3ED6C4" },
   { id: "settings",    label: "Settings",     icon: Settings,        color: "#A1A1AA" },

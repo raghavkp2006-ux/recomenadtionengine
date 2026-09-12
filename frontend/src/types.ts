@@ -1,6 +1,6 @@
 // ── Recommendation types ────────────────────────────────────────────
 
-export type Category = "anime" | "music" | "places"
+export type Category = "anime" | "music" | "places" | "movie"
 
 export interface Recommendation {
   id: string
@@ -61,4 +61,4 @@ export interface ActivityItem {
 
 // ── Navigation ──────────────────────────────────────────────────────
 
-export type PageId = "home" | "anime" | "music" | "places" | "profile" | "settings" | "myntra"
+export type PageId = "home" | "anime" | "music" | "places" | "profile" | "settings" | "myntra" | "movies"

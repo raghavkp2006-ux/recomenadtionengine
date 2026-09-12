@@ -22,6 +22,8 @@ export const colors = {
   anime:       "#4F9C8C",
   /** Tourism domain accent — warm golden amber */
   tourism:     "#E3A857",
+  /** Movies domain accent — indigo */
+  movies:      "#6366F1",
   /** UI chrome / interchange violet */
   interchange: "#8B87A8",
   /** Error / Destructive state */
@@ -29,13 +31,14 @@ export const colors = {
 } as const
 
 /** Convenience type for the content domains */
-export type Domain = "music" | "anime" | "tourism"
+export type Domain = "music" | "anime" | "tourism" | "movies"
 
 /** Map a domain key to its accent hex */
 export const domainColor: Record<Domain, string> = {
   music:   colors.music,
   anime:   colors.anime,
   tourism: colors.tourism,
+  movies:  colors.movies,
 }
 
 // ── Derived palette helpers ─────────────────────────────────────────
@@ -52,6 +55,7 @@ export const domainAlpha = (domain: Domain, a: number): string => {
     music:   [232, 85, 63],
     anime:   [79, 156, 140],
     tourism: [227, 168, 87],
+    movies:  [99, 102, 241],
   }
   const [r, g, b] = map[domain]
   return `rgba(${r},${g},${b},${a})`

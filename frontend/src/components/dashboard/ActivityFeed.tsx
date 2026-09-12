@@ -7,6 +7,7 @@ import {
   Music,
   MapPin,
   Activity,
+  Film,
 } from "lucide-react"
 import { motion } from "framer-motion"
 import type { ActivityItem, ActivityAction, Category } from "../../types"
@@ -32,6 +33,7 @@ const CATEGORY_ICONS: Record<Category, React.ElementType> = {
   anime:      Tv,
   music:      Music,
   places:     MapPin,
+  movie:      Film,
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────

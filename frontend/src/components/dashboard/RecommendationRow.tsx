@@ -1,4 +1,4 @@
-import { Tv, Music, MapPin, AlertCircle, ExternalLink } from "lucide-react"
+import { Tv, Music, MapPin, AlertCircle, ExternalLink, Film } from "lucide-react"
 import { motion } from "framer-motion"
 import { getHighResImageUrl } from "../../lib/utils"
 import type { Recommendation, Category, PageId } from "../../types"
@@ -10,7 +10,7 @@ import { StationBadge, Card } from "../interchange"
 
 export const DOMAIN: Record<Category, {
   icon: React.ElementType
-  domainKey: "anime" | "music" | "tourism"
+  domainKey: "anime" | "music" | "tourism" | "movies"
   label: string
 }> = {
   anime: {
@@ -27,6 +27,11 @@ export const DOMAIN: Record<Category, {
     icon:     MapPin,
     domainKey: "tourism",
     label:    "Places",
+  },
+  movie: {
+    icon:     Film,
+    domainKey: "movies",
+    label:    "Movies",
   },
 }
 
@@ -277,6 +282,11 @@ const EMPTY_COPY: Record<Category, { title: string; description: string; action?
     title:       "No place signals yet",
     description: "Connect music or anime to discover spots tailored to your vibe",
     action:      "Explore Places",
+  },
+  movie: {
+    title:       "No movie signals yet",
+    description: "Rate or like some movies to build your taste profile",
+    action:      "Explore Movies",
   },
 }
 

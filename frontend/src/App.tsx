@@ -18,7 +18,7 @@ import { ThemeToggleButton } from "./components/ui/ThemeToggleButton"
 import { TouristSpotsPage } from "./pages/TouristSpotsPage"
 import { MyntraPage } from "./pages/MyntraPage"
 import { SignalCard, DOMAIN } from "./components/dashboard/RecommendationRow"
-import type { PageId } from "./types"
+import type { PageId, Recommendation } from "./types"
 
 // ── Domain accent constants ──────────────────────────────────────────
 const MUSIC_ACCENT = colors.music
@@ -243,6 +243,11 @@ function DashboardLayout({
             <MyntraPage />
           </PageWrapper>
         )}
+        {currentPage === "movies" && (
+          <PageWrapper title="Movies">
+            <MoviesRecommendationsPage />
+          </PageWrapper>
+        )}
         {currentPage === "profile" && (
           <PageWrapper title="Taste Profile">
             <TasteProfileModule />
@@ -360,6 +365,49 @@ function MusicRecommendationsPage({ isConnected }: { isConnected: boolean }) {
           index={i} 
           category="music"
           meta={DOMAIN.music}
+          onNavigate={() => {}}
+        />
+      ))}
+    </div>
+  )
+}
+
+function MoviesRecommendationsPage() {
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    api.recommendations.getByCategory("movie")
+      .then((recs) => { setRecommendations(recs); setError(null) })
+      .catch((err) => setError(err.message || "Failed to load movie recommendations."))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return <div className="p-6 text-sm text-muted-foreground">Loading movie recommendations…</div>
+  }
+  if (error) {
+    return <div className="p-6 text-sm text-red-500">{error}</div>
+  }
+  if (recommendations.length === 0) {
+    return (
+      <div className="p-6 text-sm text-muted-foreground">
+        No movie recommendations yet — rate or like some movies to build your taste profile.
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap gap-4 p-4">
+      {recommendations.map((r, i) => (
+        <SignalCard
+          key={r.id}
+          item={r}
+          index={i}
+          category="movie"
+          meta={DOMAIN.movie}
           onNavigate={() => {}}
         />
       ))}

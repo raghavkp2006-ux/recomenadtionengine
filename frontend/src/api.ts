@@ -106,6 +106,25 @@ export const api = {
       if (category === "places") {
         return api.touristSpots.getRecommendations();
       }
+      if (category === "movie") {
+        try {
+          const res = await fetchApi<{ recommendations: any[] }>("/movie/recommendations", {
+            method: "POST",
+            body: JSON.stringify({}),
+          });
+          return (res.recommendations || []).map(r => ({
+            id: String(r.id),
+            title: r.title || "Unknown Movie",
+            reason: r.reason || "Recommended for you",
+            imageUrl: r.imageUrl || "",
+            score: typeof r.score === "number" ? (r.score <= 1 ? Math.round(r.score * 100) : r.score) : 0,
+            category: "movie" as const,
+          }));
+        } catch (e) {
+          console.error("Movie recs error", e);
+          return [];
+        }
+      }
       return [];
     },
     getRecent: () =>
