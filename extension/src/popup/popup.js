@@ -4,9 +4,11 @@ import { apiClient } from "../api/api-client.js";
 
 const fields = ["enabled", "collectProductViews", "collectSearch", "collectWishlist", "collectCart", "collectOrders"];
 const status = document.querySelector("#status");
+let currentSettings = null;
 
 async function render() {
   const settings = await getSettings();
+  currentSettings = settings;
   const syncState = await getSyncState();
   fields.forEach((name) => { document.querySelector(`#${name}`).checked = settings[name]; });
   document.querySelector("#pending").textContent = `Events pending: ${syncState.pending}`;
@@ -30,15 +32,15 @@ fields.forEach((name) => document.querySelector(`#${name}`).addEventListener("ch
   catch (error) { status.textContent = `Saved locally; backend update failed: ${error.message}`; }
   render();
 }));
-document.querySelector("#sync").addEventListener("click", async () => {
-  const settings = await getSettings();
-  const origin = new URL(settings.backendBaseUrl).origin;
-  const granted = await chrome.permissions.request({ origins: [`${origin}/*`] });
-  if (!granted) {
-    status.textContent = "Connection permission was not granted.";
-    return;
-  }
-  chrome.runtime.sendMessage({ type: "SYNC_NOW" }, render);
+document.querySelector("#sync").addEventListener("click", (clickEvent) => {
+  const origin = new URL(currentSettings.backendBaseUrl).origin;
+  chrome.permissions.request({ origins: [`${origin}/*`] }, (granted) => {
+    if (!granted) {
+      status.textContent = "Connection permission was not granted.";
+      return;
+    }
+    chrome.runtime.sendMessage({ type: "SYNC_NOW" }, render);
+  });
 });
 document.querySelector("#login").addEventListener("click", openBackendLogin);
 document.querySelector("#export").addEventListener("click", async () => {
