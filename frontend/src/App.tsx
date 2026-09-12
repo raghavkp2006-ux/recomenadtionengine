@@ -8,8 +8,9 @@ import { AnimeGrid } from "./components/anime/AnimeGrid"
 import { AnimeDetail } from "./components/anime/AnimeDetail"
 import { ConvergenceHalo } from "./components/dashboard/ConvergenceHalo"
 import { OnboardingWizard } from "./components/onboarding/OnboardingWizard"
-import { cn } from "@/lib/utils"
+import { cn, getHighResImageUrl } from "@/lib/utils"
 import { Button, Input } from "./components/ui"
+import { ChromaGrid, type ChromaItem } from "./components/ui/ChromaGrid"
 import { Search, Loader2 } from "lucide-react"
 import { colors } from "./tokens"
 import { Card, LineRail } from "./components/interchange"
@@ -17,7 +18,6 @@ import { ThemeProvider } from "./components/ui/ThemeProvider"
 import { ThemeToggleButton } from "./components/ui/ThemeToggleButton"
 import { TouristSpotsPage } from "./pages/TouristSpotsPage"
 import { MyntraPage } from "./pages/MyntraPage"
-import { SignalCard, DOMAIN } from "./components/dashboard/RecommendationRow"
 import type { PageId } from "./types"
 
 // ── Domain accent constants ──────────────────────────────────────────
@@ -351,18 +351,30 @@ function MusicRecommendationsPage({ isConnected }: { isConnected: boolean }) {
     )
   }
 
+  const musicItems: ChromaItem[] = recommendations.map((r) => {
+    const scoreVal = r.score ? Number(r.score) : undefined
+    return {
+      image: r.imageUrl ? getHighResImageUrl(r.imageUrl) : undefined,
+      title: r.title || "Recommended Track",
+      subtitle: r.reason || "Matched to your music vibe",
+      handle: scoreVal ? `★ ${Math.round(scoreVal * 10) / 10}` : undefined,
+      location: "Spotify",
+      borderColor: "#1DB954",
+      gradient: "linear-gradient(155deg, rgba(29, 185, 84, 0.3) 0%, rgba(15, 23, 42, 0.95) 75%, #05070a 100%)",
+      url: r.url || (r.id ? `https://open.spotify.com/track/${r.id}` : undefined),
+      data: r,
+    }
+  })
+
   return (
-    <div className="flex flex-wrap gap-4 p-4">
-      {recommendations.map((r, i) => (
-        <SignalCard 
-          key={r.id} 
-          item={r} 
-          index={i} 
-          category="music"
-          meta={DOMAIN.music}
-          onNavigate={() => {}}
-        />
-      ))}
+    <div className="relative w-full overflow-hidden rounded-2xl">
+      <ChromaGrid
+        items={musicItems}
+        radius={300}
+        damping={0.45}
+        fadeOut={0.6}
+        columns={3}
+      />
     </div>
   )
 }
@@ -411,7 +423,11 @@ function MusicSection({ isConnected }: { isConnected?: boolean }) {
           sync_disabled: "Sync not enabled — reconnect Spotify",
           token_invalid: "Spotify token expired — reconnect Spotify",
         }
-        setSyncMsg(statusMsgMap[res.status] ?? res.status ?? "Done")
+        if (res.status === "error") {
+          setSyncMsg(res.error || res.detail || "Sync failed — please try again")
+        } else {
+          setSyncMsg(statusMsgMap[res.status] ?? res.status ?? "Done")
+        }
         return api.spotify.getMusicFeed(50)
       })
       .then(feed => setTracks(feed.items))
@@ -563,15 +579,17 @@ function MusicSection({ isConnected }: { isConnected?: boolean }) {
         </div>
       )}
 
-      {/* Reconnect link */}
-      <div className="pt-2 text-center">
-        <a
-          href={api.spotify.loginUrl}
-          className="text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Reconnect Spotify
-        </a>
-      </div>
+      {/* Reconnect link (only when tracks exist, since empty state already has reconnect prompt) */}
+      {tracks.length > 0 && (
+        <div className="pt-2 text-center">
+          <a
+            href={api.spotify.loginUrl}
+            className="text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Reconnect Spotify
+          </a>
+        </div>
+      )}
     </div>
   )
 }

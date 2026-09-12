@@ -146,3 +146,67 @@ def google_callback(code: str | None = None, error: str | None = None):
     )
 
     return response
+
+
+@router.post("/callback")
+def google_callback_post(req: GoogleTokenRequest, response: Response):
+    """Verify the Google ID token directly, upsert the user, and set the session cookie."""
+    if not req.id_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing Google ID token.",
+        )
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=500,
+            detail="Google Client ID is not configured on the server.",
+        )
+
+    tokeninfo_url = f"https://oauth2.googleapis.com/tokeninfo?id_token={req.id_token}"
+    resp = requests.get(tokeninfo_url, timeout=10)
+
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Google ID token.",
+        )
+
+    payload = resp.json()
+
+    if payload.get("aud") != GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token audience.",
+        )
+
+    google_sub = payload.get("sub")
+    email = payload.get("email")
+    name = payload.get("name")
+    picture_url = payload.get("picture")
+
+    if not google_sub or not email:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required fields from Google token.",
+        )
+
+    user = upsert_google_user(
+        google_sub=google_sub,
+        email=email,
+        name=name,
+        picture_url=picture_url,
+    )
+
+    session_cookie = create_session_cookie(user_id=str(user["id"]))
+    response.set_cookie(
+        key="session",
+        value=session_cookie,
+        httponly=True,
+        samesite="none",
+        secure=True,
+        path="/",
+        max_age=30 * 24 * 60 * 60,
+    )
+
+    return {"message": "Login successful", "user_id": str(user["id"])}
+
