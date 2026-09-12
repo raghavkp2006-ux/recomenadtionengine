@@ -176,6 +176,7 @@ def sync_user_recent_plays(user_id: str) -> Dict[str, Any]:
 
         new_plays_count = 0
         max_played_at: Optional[datetime] = None
+        seen_played_ats = set()
 
         # Step 4 & 5: Deduplicate and insert play events
         for item in items:
@@ -202,6 +203,11 @@ def sync_user_recent_plays(user_id: str) -> Dict[str, Any]:
             played_at_dt = parse_spotify_datetime(played_at_raw)
             if max_played_at is None or played_at_dt > max_played_at:
                 max_played_at = played_at_dt
+
+            # Skip duplicate timestamps within the same batch
+            if played_at_dt in seen_played_ats:
+                continue
+            seen_played_ats.add(played_at_dt)
 
             # Check for existing play event by unique constraint (user_id, played_at)
             existing = (
