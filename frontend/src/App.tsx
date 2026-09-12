@@ -411,7 +411,11 @@ function MusicSection({ isConnected }: { isConnected?: boolean }) {
           sync_disabled: "Sync not enabled — reconnect Spotify",
           token_invalid: "Spotify token expired — reconnect Spotify",
         }
-        setSyncMsg(statusMsgMap[res.status] ?? res.status ?? "Done")
+        if (res.status === "error") {
+          setSyncMsg(res.error || res.detail || "Sync failed — please try again")
+        } else {
+          setSyncMsg(statusMsgMap[res.status] ?? res.status ?? "Done")
+        }
         return api.spotify.getMusicFeed(50)
       })
       .then(feed => setTracks(feed.items))
@@ -563,15 +567,17 @@ function MusicSection({ isConnected }: { isConnected?: boolean }) {
         </div>
       )}
 
-      {/* Reconnect link */}
-      <div className="pt-2 text-center">
-        <a
-          href={api.spotify.loginUrl}
-          className="text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Reconnect Spotify
-        </a>
-      </div>
+      {/* Reconnect link (only when tracks exist, since empty state already has reconnect prompt) */}
+      {tracks.length > 0 && (
+        <div className="pt-2 text-center">
+          <a
+            href={api.spotify.loginUrl}
+            className="text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Reconnect Spotify
+          </a>
+        </div>
+      )}
     </div>
   )
 }
