@@ -15,5 +15,21 @@
       "js": ["src/content/myntra-content.js"],
       "run_at": "document_idle"
     }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/storage/local-store.js",
+        "src/content/url.js",
+        "src/content/parser/product-parser.js",
+        "src/content/parser/search-parser.js",
+        "src/content/parser/listing-parser.js",
+        "src/content/parser/collection-parser.js",
+        "src/content/parser/selectors.js",
+        "src/content/events/event-builder.js",
+        "src/content/events/event-deduplicator.js"
+      ],
+      "matches": ["https://www.myntra.com/*"]
+    }
   ]
 }

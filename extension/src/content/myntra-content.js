@@ -2,8 +2,16 @@
 // testable without requiring a bundler or broad extension permissions.
 (async () => {
 const [{ getSettings }, { getPageType }, { parseProduct }, { parseSearch }, { parseListing }, { parseWishlist, parseCart, parseOrders }, { makeEvent }, { isDuplicate }] = await Promise.all([
-  import("../storage/local-store.js"), import("./url.js"), import("./parser/product-parser.js"), import("./parser/search-parser.js"), import("./parser/listing-parser.js"), import("./parser/collection-parser.js"), import("./events/event-builder.js"), import("./events/event-deduplicator.js"),
+  import(chrome.runtime.getURL("src/storage/local-store.js")),
+  import(chrome.runtime.getURL("src/content/url.js")),
+  import(chrome.runtime.getURL("src/content/parser/product-parser.js")),
+  import(chrome.runtime.getURL("src/content/parser/search-parser.js")),
+  import(chrome.runtime.getURL("src/content/parser/listing-parser.js")),
+  import(chrome.runtime.getURL("src/content/parser/collection-parser.js")),
+  import(chrome.runtime.getURL("src/content/events/event-builder.js")),
+  import(chrome.runtime.getURL("src/content/events/event-deduplicator.js")),
 ]);
+console.log("[PolyTaste] content script loaded on", location.href);
 let lastSignature = "";
 let timer;
 let activeProduct = null;
@@ -11,8 +19,8 @@ function emit(event) {
   if (isDuplicate(event)) return;
   try {
     chrome.runtime.sendMessage({ type: "MYNTRA_EVENT", event });
-  } catch {
-    // Extension context invalidated (stale tab after reload) — drop silently.
+  } catch (error) {
+    console.warn("[PolyTaste] sendMessage failed (stale context?):", error.message);
   }
 }
 function dwellBucket(seconds) {
@@ -42,17 +50,31 @@ async function renderRecommendations() {
   } catch { /* a missing backend session must not alter Myntra */ }
 }
 async function inspectPage() {
-  const settings = await getSettings(); if (!settings.enabled) return;
-  const type = getPageType(location.href); const signature = `${type}|${location.href}|${document.title}`;
-  if (signature === lastSignature) return; lastSignature = signature;
-  if (activeProduct && activeProduct.pageUrl !== location.href) finishDwell();
-  if (type === "product" && settings.collectProductViews && !activeProduct) { const product = parseProduct(document, location.href); activeProduct = { product, pageUrl: location.href, startedAt: Date.now() }; emit(makeEvent("product_view", { product })); renderRecommendations(); }
-  if (type === "search" && settings.collectSearch) { const result = parseSearch(document, location.href); emit(makeEvent("search", { searchQuery: result.search_query })); }
-  if (type === "listing" && settings.collectProductViews) emit(makeEvent("listing_view", { metadata: parseListing(document) }));
-  if (type === "wishlist" && settings.collectWishlist) emit(makeEvent("order_view", { metadata: parseWishlist(document) }));
-  if (type === "cart" && settings.collectCart) emit(makeEvent("cart_add", { metadata: parseCart(document) }));
-  if (type === "orders" && settings.collectOrders) emit(makeEvent("order_view", { metadata: parseOrders(document) }));
+  const settings = await getSettings();
+  if (!settings.enabled) { if (settings.debug) console.log("[PolyTaste] disabled, skipping"); return; }
+  try {
+    const type = getPageType(location.href);
+    const signature = `${type}|${location.href}|${document.title}`;
+    if (settings.debug) console.log("[PolyTaste] inspectPage", { type, url: location.href, signature, lastSignature });
+    if (signature === lastSignature) { if (settings.debug) console.log("[PolyTaste] signature unchanged, skipping"); return; }
+    lastSignature = signature;
+    if (activeProduct && activeProduct.pageUrl !== location.href) finishDwell();
+    if (type === "product" && settings.collectProductViews && !activeProduct) {
+      const product = parseProduct(document, location.href);
+      if (settings.debug) console.log("[PolyTaste] parsed product", product);
+      activeProduct = { product, pageUrl: location.href, startedAt: Date.now() };
+      emit(makeEvent("product_view", { product }));
+      renderRecommendations();
+    }
+    if (type === "search" && settings.collectSearch) { const result = parseSearch(document, location.href); emit(makeEvent("search", { searchQuery: result.search_query })); }
+    if (type === "listing" && settings.collectProductViews) emit(makeEvent("listing_view", { metadata: parseListing(document) }));
+    if (type === "wishlist" && settings.collectWishlist) emit(makeEvent("order_view", { metadata: parseWishlist(document) }));
+    if (type === "cart" && settings.collectCart) emit(makeEvent("cart_add", { metadata: parseCart(document) }));
+    if (type === "orders" && settings.collectOrders) emit(makeEvent("order_view", { metadata: parseOrders(document) }));
+  } catch (error) {
+    console.error("[PolyTaste] inspectPage failed:", error);
+  }
 }
 function schedule() { clearTimeout(timer); timer = setTimeout(inspectPage, 350); }
 getSettings().then((settings) => { if (settings.enabled) { new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true }); ["pushState", "replaceState"].forEach((method) => { const original = history[method]; history[method] = function (...args) { const value = original.apply(this, args); schedule(); return value; }; }); addEventListener("popstate", schedule); addEventListener("pagehide", finishDwell); schedule(); } });
-})().catch(() => { /* parsing failures must never affect the host page */ });
+})().catch((error) => { console.error("[PolyTaste] content script setup failed:", error); });
