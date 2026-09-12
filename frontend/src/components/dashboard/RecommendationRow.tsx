@@ -1,4 +1,4 @@
-import { Tv, Music, MapPin, AlertCircle } from "lucide-react"
+import { Tv, Music, MapPin, AlertCircle, ExternalLink } from "lucide-react"
 import { motion } from "framer-motion"
 import { getHighResImageUrl } from "../../lib/utils"
 import type { Recommendation, Category, PageId } from "../../types"
@@ -156,6 +156,18 @@ export function SignalCard({
         onClick={handleClick}
         className="h-full flex flex-col relative"
       >
+        {category === "music" && item.id && (
+          <a
+            href={`https://open.spotify.com/track/${item.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-black/40 hover:bg-black/60 text-white transition-colors"
+            title="Open in Spotify"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        )}
         {/* Image */}
         <div className="relative h-28 overflow-hidden shrink-0">
           {item.imageUrl ? (
