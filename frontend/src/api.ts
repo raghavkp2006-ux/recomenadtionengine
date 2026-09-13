@@ -213,6 +213,8 @@ export const api = {
         body: JSON.stringify({ product_id, feedback }),
       }),
     exportCsvUrl: `${API_BASE}/myntra/export.csv`,
+    getRecentlyViewed: (limit = 15) =>
+      fetchApi<{ total_events: number; products: any[] }>(`/myntra/history/products?limit=${limit}`),
   },
   touristSpots: {
     getAll: (category?: string, price_tier?: string) => {

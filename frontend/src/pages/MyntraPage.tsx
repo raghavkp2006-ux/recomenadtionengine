@@ -36,6 +36,7 @@ export interface MyntraProductItem {
 export function MyntraPage() {
   const [connectionEnabled, setConnectionEnabled] = useState<boolean | null>(null)
   const [products, setProducts] = useState<MyntraProductItem[]>([])
+  const [recentlyViewed, setRecentlyViewed] = useState<MyntraProductItem[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [loading, setLoading] = useState<boolean>(true)
@@ -76,6 +77,11 @@ export function MyntraPage() {
         setError(err.message || "Failed to load Myntra connection.")
         setLoading(false)
       })
+
+    // Supplementary: fetch recently viewed products (don't block the page)
+    api.myntra.getRecentlyViewed(15)
+      .then((res) => { if (isMounted && res?.products) setRecentlyViewed(res.products) })
+      .catch(() => { /* supplementary — don't block the page on this */ })
 
     return () => {
       isMounted = false
@@ -287,6 +293,36 @@ export function MyntraPage() {
       ) : (
         /* Connected state with Recommendations */
         <div className="space-y-6">
+          {/* Recently Viewed Section */}
+          {recentlyViewed.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Recently Viewed
+              </h3>
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {recentlyViewed.map((product) => (
+                  <Card key={product.product_id} className="min-w-[160px] p-3 flex-shrink-0 rounded-xl border border-[#E4E4E7] dark:border-[#27272A]">
+                    {product.image_url && (
+                      <div className="w-full h-24 rounded-lg overflow-hidden mb-2 bg-black/5 dark:bg-white/5">
+                        <img
+                          src={product.image_url}
+                          alt={product.title || "Product"}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => { (e.target as HTMLElement).style.display = "none" }}
+                        />
+                      </div>
+                    )}
+                    <div className="text-sm font-medium truncate">{product.title || "Untitled product"}</div>
+                    <div className="text-xs text-muted-foreground truncate">{product.brand || ""}</div>
+                    {product.price != null && (
+                      <div className="text-xs mt-1 font-mono" style={{ color: FASHION_ACCENT }}>₹{product.price.toLocaleString()}</div>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
           {/* Search & Category Filter Section */}
           <div className="space-y-4">
             {/* Search Bar */}
