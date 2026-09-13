@@ -24,7 +24,7 @@ export interface RingCenterProps {
     value: number;
     label: string;
     isHovered: boolean;
-    data: { label: string; value: number; maxValue: number; color?: string };
+    data: { label: string; value: number; maxValue: number; color?: string } | null;
   }) => ReactNode;
   /** Additional class name for the container */
   className?: string;
@@ -70,7 +70,7 @@ export function RingCenter({
   const centerSize = baseInnerRadius * 2 - 16;
 
   // If custom render function is provided, use it
-  if (children && hoveredData) {
+  if (children) {
     return (
       <div
         className={cn(

@@ -753,6 +753,7 @@ function AnimeModule({
 
 export function TasteProfileModule() {
   const [profile, setProfile] = useState<any>(null)
+  const [convergence, setConvergence] = useState<{ score: number; segments: any[] } | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -760,6 +761,10 @@ export function TasteProfileModule() {
       .then(setProfile)
       .catch(console.error)
       .finally(() => setLoading(false))
+
+    api.taste.getConvergence()
+      .then(setConvergence)
+      .catch(console.error)
   }, [])
 
   if (loading) return (
@@ -776,34 +781,7 @@ export function TasteProfileModule() {
     </div>
   )
 
-  // Calculate Convergence Score
-  const domains = ['spotify', 'anime', 'tourism'];
-  const activeDomains = domains.filter(d => Object.keys(profile.breakdown?.[d] || {}).length > 0).length;
-  const baseScore = activeDomains >= 3 ? 90 : activeDomains === 2 ? 80 : activeDomains === 1 ? 50 : 20;
-
-  const allGenres: Record<string, number> = {};
-  domains.forEach(d => {
-    Object.keys(profile.breakdown?.[d] || {}).forEach(g => {
-      allGenres[g] = (allGenres[g] || 0) + 1;
-    });
-  });
-  
-  const overlapping = Object.values(allGenres).filter(c => (c as number) > 1).length;
-  const total = Object.keys(allGenres).length;
-  const bonus = total > 0 ? Math.round((overlapping / total) * 20) : 0;
-  const convergenceScore = Math.min(100, baseScore + bonus);
-
-  // Generate real data for the Ring Chart
-  const musicCount = Object.keys(profile.breakdown?.['spotify'] || {}).length;
-  const animeCount = Object.keys(profile.breakdown?.['anime'] || {}).length;
   const tourismCount = Object.keys(profile.breakdown?.['tourism'] || profile.breakdown?.['spots'] || {}).length;
-  const maxCount = Math.max(10, musicCount, animeCount, tourismCount);
-
-  const ringData = [
-    { label: "Music", value: musicCount, maxValue: maxCount },
-    { label: "Anime", value: animeCount, maxValue: maxCount },
-    { label: "Places", value: tourismCount, maxValue: maxCount },
-  ];
 
   // Convert profile object to sorted array for display
   const topGenres = Object.entries(profile.profile || {})
@@ -814,7 +792,7 @@ export function TasteProfileModule() {
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Header & Halo */}
       <div className="flex flex-col items-center justify-center py-8">
-        <ConvergenceHalo score={convergenceScore} data={ringData} />
+        <ConvergenceHalo score={convergence?.score} data={convergence?.segments} />
         <div className="text-center mt-6 space-y-2">
           <h2 className="text-2xl font-display font-bold text-foreground">
             Your Taste Profile

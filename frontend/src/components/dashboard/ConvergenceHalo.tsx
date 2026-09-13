@@ -17,12 +17,7 @@ export function ConvergenceHalo({
   score?: number
   data?: ConvergenceData[]
 }) {
-  // If no data is provided (e.g. Hero section), use default/mock data
-  const chartData = data || [
-    { label: "Music", value: 85, maxValue: 100 },
-    { label: "Anime", value: 60, maxValue: 100 },
-    { label: "Places", value: 50, maxValue: 100 },
-  ]
+  const chartData = data || []
 
   return (
     <div

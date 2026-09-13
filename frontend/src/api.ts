@@ -40,6 +40,8 @@ export const api = {
   },
   taste: {
     getProfile: () => fetchApi<any>("/taste-profile"),
+    getConvergence: () =>
+      fetchApi<{ score: number; segments: { label: string; value: number; maxValue: number }[] }>("/taste/convergence"),
   },
   anime: {
     getTop: () => fetchApi<any[]>("/anime/top"),

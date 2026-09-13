@@ -5,7 +5,7 @@ import { ContinueRow } from "./ContinueRow"
 import { ActivityFeed } from "./ActivityFeed"
 import { TopBar } from "./TopBar"
 import { Hero } from "../blocks/hero"
-import { ConvergenceHalo, type ConvergenceData } from "./ConvergenceHalo"
+import { ConvergenceHalo } from "./ConvergenceHalo"
 import {
   mockAnimeRecommendations,
   mockMusicRecommendations,
@@ -65,14 +65,11 @@ export function DashboardHome({ userName, onLogout, onNavigate, connections }: D
   const fetchPlaces      = useCallback(() => api.touristSpots.getRecommendations(), [])
   const fetchRecent      = useCallback(() => api.recommendations.getRecent(), [])
   const fetchActivity    = useCallback(() => api.recommendations.getActivity(), [])
-  const fetchTaste       = useCallback(() => api.taste.getProfile(), [])
-
   const anime       = useFetchWithFallback<Recommendation[]>(fetchAnime,       mockAnimeRecommendations)
   const music       = useFetchWithFallback<Recommendation[]>(fetchMusic,        mockMusicRecommendations)
   const places      = useFetchWithFallback<Recommendation[]>(fetchPlaces,       mockPlacesRecommendations)
   const recent      = useFetchWithFallback<RecentItem[]>(fetchRecent,           mockRecentItems)
   const activity    = useFetchWithFallback<ActivityItem[]>(fetchActivity,       mockActivity)
-  const taste       = useFetchWithFallback<any>(fetchTaste, null)
 
   const categories: {
     category: Category
@@ -84,28 +81,15 @@ export function DashboardHome({ userName, onLogout, onNavigate, connections }: D
     { category: "places",     state: places,      isConnected: true },
   ]
 
-  // Derive real ConvergenceData and score from taste profile breakdown
-  const musicCount = Object.keys(taste.data?.breakdown?.spotify || {}).length
-  const animeLikedCount = Object.keys(taste.data?.breakdown?.anime || {}).length
-  const anilistCount = Object.keys(taste.data?.breakdown?.anilist || {}).length
-  const animeCount = animeLikedCount + anilistCount
-  const placesCount = Object.keys(taste.data?.crosswalk_tourism || {}).length
+  const [convergence, setConvergence] = useState<{ score: number; segments: any[] } | null>(null)
 
-  const hasSignals = (musicCount + animeCount + placesCount) > 0
-
-  const activeDomains = [musicCount > 0, animeCount > 0, placesCount > 0].filter(Boolean).length
-  const baseScore = activeDomains >= 3 ? 85 : activeDomains === 2 ? 70 : activeDomains === 1 ? 45 : 0
-  const mergedGenreCount = Object.keys(taste.data?.profile || {}).length
-  const convergenceScore = hasSignals
-    ? Math.min(100, baseScore + Math.min(15, Math.round(mergedGenreCount * 1.5)))
-    : undefined
-
-  const maxDomainVal = Math.max(10, musicCount, animeCount, placesCount)
-  const convergenceData: ConvergenceData[] | undefined = hasSignals ? [
-    { label: "Music", value: musicCount, maxValue: maxDomainVal },
-    { label: "Anime", value: animeCount, maxValue: maxDomainVal },
-    { label: "Places", value: placesCount, maxValue: maxDomainVal },
-  ] : undefined
+  useEffect(() => {
+    let isMounted = true
+    api.taste.getConvergence()
+      .then((res) => { if (isMounted) setConvergence(res) })
+      .catch(() => { /* leave convergence null -- ConvergenceHalo handles undefined gracefully */ })
+    return () => { isMounted = false }
+  }, [])
 
   // Safe display name — handle email addresses (foo@bar.com → foo) and plain names
   const displayName = userName
@@ -148,7 +132,7 @@ export function DashboardHome({ userName, onLogout, onNavigate, connections }: D
 
         {/* Convergence Halo — the signature moment */}
         <Card className="rounded-xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-none border border-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out">
-          <ConvergenceHalo score={convergenceScore} data={convergenceData} />
+          <ConvergenceHalo score={convergence?.score} data={convergence?.segments} />
         </Card>
 
         {/* Recommendation rows */}
