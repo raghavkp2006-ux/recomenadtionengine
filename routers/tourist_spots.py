@@ -8,6 +8,7 @@ from database import get_db, get_user
 from services.auth import get_current_user_id
 from services.taste_profile import compute_taste_profile
 from services.tourist_spots import get_spots, get_spot_by_id, record_feedback, get_recommendations
+from services.spotify_sync import refresh_spotify_token
 
 router = APIRouter(prefix="/tourist-spots", tags=["tourist-spots"])
 
@@ -69,8 +70,11 @@ def get_tourist_spot_recommendations(
         if user_record:
             if user_record.get("expires_at", 0) > int(time.time()):
                 spotify_token = user_record.get("access_token")
-    except Exception:
-        pass
+            else:
+                # Token expired — refresh instead of silently giving up
+                spotify_token = refresh_spotify_token(user_record)
+    except Exception as e:
+        print(f"[tourist_spots] Spotify token resolution failed for user {user_id}: {e}")
 
     taste_profile = compute_taste_profile(user_id, spotify_token=spotify_token)
     return get_recommendations(db=db, user_id=user_id, taste_profile=taste_profile, limit=limit)
