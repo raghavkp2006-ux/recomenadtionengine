@@ -13,6 +13,7 @@ genres.
 
 from __future__ import annotations
 
+import math
 import requests
 from typing import Any, Dict, List, Optional
 
@@ -604,6 +605,61 @@ def compute_taste_profile(
         "crosswalk_dining": crosswalk_dining,
         "crosswalk_movie": crosswalk_movie,
     }
+
+
+def compute_convergence(profile_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Computes a 0-100 Convergence score: how much a user's cross-domain
+    signals (music, anime, movies) agree with each other via the genre
+    crosswalks, plus how many domains have real signal at all.
+    """
+    breakdown = profile_data.get("breakdown", {})
+    spotify = breakdown.get("spotify", {}) or {}
+    anime = breakdown.get("anime", {}) or {}
+    anilist = breakdown.get("anilist", {}) or {}
+    movie = breakdown.get("movie", {}) or {}
+    myntra = breakdown.get("myntra", {}) or {}
+
+    anime_combined = _merge_profiles(anime, anilist)  # reuse existing helper
+
+    # --- Coverage ---
+    domains = [spotify, anime_combined, movie, myntra]
+    connected_count = sum(1 for d in domains if d)
+    coverage = (connected_count / 4) * 40
+
+    # --- Cross-domain agreement ---
+    def cosine_sim(a: Dict[str, float], b: Dict[str, float]) -> float:
+        if not a or not b:
+            return 0.0
+        keys = set(a.keys()) | set(b.keys())
+        dot = sum(a.get(k, 0.0) * b.get(k, 0.0) for k in keys)
+        norm_a = math.sqrt(sum(v * v for v in a.values()))
+        norm_b = math.sqrt(sum(v * v for v in b.values()))
+        if norm_a == 0 or norm_b == 0:
+            return 0.0
+        return max(0.0, min(1.0, dot / (norm_a * norm_b)))
+
+    crosswalk_anime = profile_data.get("crosswalk_anime", {}) or {}
+    crosswalk_movie = profile_data.get("crosswalk_movie", {}) or {}
+
+    pairs = []
+    if crosswalk_anime and anime_combined:
+        pairs.append(cosine_sim(crosswalk_anime, anime_combined))
+    if crosswalk_movie and movie:
+        pairs.append(cosine_sim(crosswalk_movie, movie))
+
+    agreement_avg = (sum(pairs) / len(pairs)) if pairs else 0.0
+    cross_domain_agreement = agreement_avg * 60
+
+    score = round(min(100, max(0, coverage + cross_domain_agreement)))
+
+    segments = [
+        {"label": "Music", "value": round(min(100, sum(spotify.values()))), "maxValue": 100},
+        {"label": "Anime", "value": round(min(100, sum(anime_combined.values()))), "maxValue": 100},
+        {"label": "Movies", "value": round(min(100, sum(movie.values()))), "maxValue": 100},
+    ]
+
+    return {"score": score, "segments": segments}
 
 
 def get_anime_boost_map(user_id: str, spotify_token: Optional[str] = None) -> Dict[str, float]:
