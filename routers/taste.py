@@ -37,11 +37,12 @@ def get_taste_profile(
     try:
         user_record = get_user(user_id)
         if user_record:
-            import time
             if user_record.get("expires_at", 0) > int(time.time()):
                 spotify_token = user_record.get("access_token")
-    except Exception:
-        pass  # Spotify signal is optional
+            else:
+                spotify_token = refresh_spotify_token(user_record)
+    except Exception as e:
+        print(f"[taste] Spotify token resolution failed for user {user_id}: {e}")
 
     profile_data = compute_taste_profile(user_id, spotify_token=spotify_token)
 
