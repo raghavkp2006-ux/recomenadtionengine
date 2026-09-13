@@ -781,8 +781,6 @@ export function TasteProfileModule() {
     </div>
   )
 
-  const tourismCount = Object.keys(profile.breakdown?.['tourism'] || profile.breakdown?.['spots'] || {}).length;
-
   // Convert profile object to sorted array for display
   const topGenres = Object.entries(profile.profile || {})
     .sort(([, a]: any, [, b]: any) => b - a)
@@ -826,10 +824,12 @@ export function TasteProfileModule() {
                 Domain Activity
               </h3>
             </div>
-            <div className="p-5 flex gap-8">
-              <StatBlock label="Anime Liked"      value={Object.keys(profile.breakdown?.anime || {}).length}       color="#FF7A59" />
-              <StatBlock label="AniList Genres"   value={Object.keys(profile.breakdown?.anilist || {}).length}     color="#4A90E2" />
-              <StatBlock label="Places Rated"     value={tourismCount}                                             color="#E3A857" />
+            <div className="p-5 flex flex-wrap gap-6 md:gap-8">
+              <StatBlock label="Anime Liked"            value={Object.keys(profile.breakdown?.anime || {}).length}              color="#FF7A59" />
+              <StatBlock label="AniList Genres"         value={Object.keys(profile.breakdown?.anilist || {}).length}            color="#4A90E2" />
+              <StatBlock label="Places Rated"           value={profile.places_rated_count ?? 0}                                 color="#E3A857" />
+              <StatBlock label="Movies Rated"           value={Object.keys(profile.breakdown?.movie || {}).length}              color="#6366F1" />
+              <StatBlock label="Fashion Interactions"   value={Object.keys(profile.breakdown?.myntra?.styles || {}).length}     color="#D946EF" />
             </div>
           </Card>
           

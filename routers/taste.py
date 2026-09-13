@@ -8,10 +8,11 @@ import time
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi import Request
 
+from sqlalchemy.orm import Session
 from services.auth import get_current_user_id
 from services.taste_profile import compute_taste_profile, compute_convergence
 from services.spotify_sync import refresh_spotify_token
-from database import get_user, get_anilist_user
+from database import get_db, get_user, get_anilist_user, UserSpotFeedback
 
 router = APIRouter(tags=["taste"])
 
@@ -20,6 +21,7 @@ router = APIRouter(tags=["taste"])
 def get_taste_profile(
     request: Request,
     user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
 ):
     """
     Return the user's combined cross-module taste profile.
@@ -45,11 +47,13 @@ def get_taste_profile(
         print(f"[taste] Spotify token resolution failed for user {user_id}: {e}")
 
     profile_data = compute_taste_profile(user_id, spotify_token=spotify_token)
+    places_rated_count = db.query(UserSpotFeedback).filter(UserSpotFeedback.user_id == user_id).count()
 
     return {
         "user_id": user_id,
         "spotify_connected": spotify_token is not None,
         "anilist_connected": get_anilist_user(user_id) is not None,
+        "places_rated_count": places_rated_count,
         **profile_data,
     }
 
