@@ -42,7 +42,7 @@ function detectResumeStep(): number {
 }
 
 export default function App() {
-  const [user,           setUser]           = useState<{ user_id: string } | null>(null)
+  const [user,           setUser]           = useState<{ user_id: string; name?: string | null } | null>(null)
   const [loading,        setLoading]        = useState(true)
   const [showOnboarding, setShowOnboarding] = useState(false)
   // Computed once on mount so it's stable across re-renders
@@ -146,6 +146,7 @@ export default function App() {
       ) : (
         <DashboardLayout
           userId={user.user_id}
+          userName={user.name || user.user_id}
           onLogout={() => {
             api.auth.logout().then(() => setUser(null))
           }}
@@ -159,9 +160,11 @@ export default function App() {
 
 function DashboardLayout({
   userId,
+  userName,
   onLogout,
 }: {
   userId: string
+  userName?: string
   onLogout: () => void
 }) {
   const [currentPage,    setCurrentPage]    = useState<PageId>("home")
@@ -214,7 +217,7 @@ function DashboardLayout({
       >
         {currentPage === "home" && (
           <DashboardHome
-            userName={userId}
+            userName={userName || userId}
             onLogout={onLogout}
             onNavigate={handleNavigate}
             connections={connections}

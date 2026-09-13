@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from database import get_dynamodb_resource, init_db
+from database import get_dynamodb_resource, init_db, get_user_by_id
 from routers import google_auth, spotify, spotify_import, anime, taste, anilist, connections, tourist_spots, movie, dining, myntra
 from services.auth import get_current_user_id, create_session_cookie
 from services.spotify_scheduler import start_scheduler, stop_scheduler
@@ -102,7 +102,13 @@ def read_root():
 
 @app.get("/auth/me")
 def get_me(user_id: str = Depends(get_current_user_id)):
-    return {"user_id": user_id}
+    user = get_user_by_id(user_id)
+    name = None
+    if user:
+        name = user.get("name") or user.get("spotify_display_name") or user.get("display_name")
+        if not name and user.get("email"):
+            name = user["email"].split("@")[0]
+    return {"user_id": user_id, "name": name}
 
 class LoginRequest(BaseModel):
     email: str

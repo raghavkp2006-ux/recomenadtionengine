@@ -124,7 +124,7 @@ export function DashboardHome({ userName, onLogout, onNavigate, connections }: D
             <span className="font-semibold tracking-tight text-4xl text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out">
               One signal for every{" "}
               <span className="text-[#2563EB] dark:text-[#3B82F6]">
-                {displayName}
+                domain
               </span>
               .
             </span>

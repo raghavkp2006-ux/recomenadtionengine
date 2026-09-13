@@ -24,7 +24,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 
 export const api = {
   auth: {
-    me: () => fetchApi<{ user_id: string }>("/auth/me"),
+    me: () => fetchApi<{ user_id: string; name: string | null }>("/auth/me"),
     login: (req: any) => fetchApi<{ message: string, user_id: string }>("/auth/login", { 
       method: "POST", 
       body: JSON.stringify(req) 
