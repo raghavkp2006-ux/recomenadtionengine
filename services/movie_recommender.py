@@ -144,7 +144,21 @@ def get_taste_vector_recommendations(
         reason_text = "Based on your movie taste profile"
 
     if not seed_vectors:
-        return []
+        # No liked_ids and no personal_rating data yet -- fall back to the
+        # dataset's own order (it was fetched from TMDB's popular + top_rated
+        # lists, so this is a reasonable "popular" ordering even without a
+        # stored numeric score).
+        fallback: List[Dict[str, Any]] = []
+        for mid, meta in list(movie_data_map.items())[:n]:
+            fallback.append({
+                "id": str(mid),
+                "title": meta.get("title", "Unknown"),
+                "imageUrl": meta.get("poster_url") or "",
+                "reason": "Popular pick to get you started",
+                "score": 50,
+                "category": "movie",
+            })
+        return fallback
 
     # Compute weighted average taste vector
     weights_arr = np.array(seed_weights, dtype=np.float32).reshape(-1, 1)
