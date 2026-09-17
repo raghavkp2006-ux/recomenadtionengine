@@ -23,6 +23,20 @@ def parse_and_sort(folder: str):
             with open(fpath, encoding="utf-8") as f:
                 records = json.load(f)
             all_records.extend(records)
+        elif fname == "RawCoreStream.json":
+            fpath = os.path.join(folder, fname)
+            with open(fpath, encoding="utf-8") as f:
+                records = json.load(f)
+            for r in records:
+                if r.get("message_content_uri") and r.get("message_content_uri").startswith("spotify:track:"):
+                    r["spotify_track_uri"] = r["message_content_uri"]
+                    r["master_metadata_track_name"] = "Track " + r["message_content_uri"].split(":")[-1]
+                    r["master_metadata_album_artist_name"] = "Unknown Artist"
+                    ts_str = r.get("timestamp_utc")
+                    if ts_str and "." in ts_str:
+                        ts_str = ts_str.split(".")[0] + "Z"
+                    r["ts"] = ts_str
+                    all_records.append(r)
     
     # Filter valid tracks
     filtered = [
@@ -32,8 +46,10 @@ def parse_and_sort(folder: str):
     
     # Sort by timestamp
     for r in filtered:
-        # e.g. "2020-06-29T10:27:26Z"
-        r["parsed_ts"] = datetime.strptime(r["ts"], "%Y-%m-%dT%H:%M:%SZ")
+        try:
+            r["parsed_ts"] = datetime.strptime(r["ts"], "%Y-%m-%dT%H:%M:%SZ")
+        except (ValueError, TypeError):
+            r["parsed_ts"] = datetime.min
         
     filtered.sort(key=lambda x: x["parsed_ts"])
     return filtered
