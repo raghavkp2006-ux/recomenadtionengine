@@ -814,81 +814,58 @@ def fetch_audio_features(track_ids: List[str], token: str) -> Dict[str, Dict[str
 
 @router.get(
     "/recommend/{track_id}",
-    deprecated=True,
-    summary="[DEPRECATED] DNN similarity via audio-features",
-    description=(
-        "Uses the Spotify /audio-features endpoint which was deprecated for new apps "
-        "in November 2024.  For new integrations use GET /spotify/recommendations instead."
-    ),
+    summary="Local DNN similarity",
+    description="Uses the locally trained DNN model and track embeddings from the user's streaming history.",
 )
 def recommend_similar_tracks(track_id: str, user_id: str = Depends(get_current_user_id)):
-    """
-    [DEPRECATED] Passes audio features into the PyTorch DNN to get similarity scores.
-    Requires /audio-features API access (not available for new Spotify Developer apps
-    created after November 2024).  Use /spotify/recommendations instead.
-    """
-    token = get_valid_access_token(user_id)
-
-    headers = {"Authorization": f"Bearer {token}"}
-    url = "https://api.spotify.com/v1/me/top/tracks?limit=50"
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        raise HTTPException(
-            status_code=response.status_code, detail="Failed to fetch top tracks"
-        )
-
-    top_tracks = response.json().get("items", [])
-    if not top_tracks:
-        return {"recommendations": []}
-
-    candidate_ids = [track["id"] for track in top_tracks if track["id"] != track_id]
-    ids_to_fetch = [track_id] + candidate_ids
-    ids_to_fetch = ids_to_fetch[:100]
-
-    audio_features_map = fetch_audio_features(ids_to_fetch, token)
-
-    if track_id not in audio_features_map:
-        raise HTTPException(
-            status_code=404, detail="Seed track audio features not found"
-        )
-
-    seed_features = audio_features_map[track_id]
-
-    def _normalize(features: Dict[str, float]) -> List[float]:
-        return [
-            features["danceability"],
-            features["energy"],
-            min(features["tempo"] / 200.0, 1.0),
-            features["valence"],
-            features["acousticness"],
-        ]
-
+    import json
+    import torch
     import numpy as np
+    from models.spotify_dnn import SpotifySimilarityDNN
     
-    seed_vector = np.array(_normalize(seed_features), dtype=np.float32)
-
-    recommendations = []
-    for track in top_tracks:
-        tid = track["id"]
-        if tid == track_id or tid not in audio_features_map:
-            continue
-
-        candidate_vector = np.array(
-            _normalize(audio_features_map[tid]), dtype=np.float32
-        )
+    # Load embeddings
+    embeddings_path = "data/models/track_embeddings.json"
+    if not os.path.exists(embeddings_path):
+        raise HTTPException(status_code=500, detail="Local track embeddings not found.")
         
-        # Simple Euclidean similarity fallback for deprecated endpoint
-        distance = np.linalg.norm(seed_vector - candidate_vector)
-        similarity = 1.0 / (1.0 + float(distance))
-
-        recommendations.append(
-            {
-                "id": tid,
-                "name": track["name"],
-                "artists": [a["name"] for a in track.get("artists", [])],
-                "similarity_score": round(similarity, 4),
-            }
-        )
-
-    recommendations.sort(key=lambda x: x["similarity_score"], reverse=True)
-    return {"recommendations": recommendations[:5]}
+    with open(embeddings_path, "r", encoding="utf-8") as f:
+        emb_data = json.load(f)
+        
+    embed_dim = emb_data["embed_dim"]
+    tracks = emb_data["tracks"]
+    
+    track_uri = f"spotify:track:{track_id}"
+    if track_uri not in tracks:
+        raise HTTPException(status_code=404, detail="Seed track not found in local listening history.")
+        
+    # Load model
+    device = torch.device("cpu")
+    model = SpotifySimilarityDNN(input_dim=embed_dim * 2, hidden_dim=64).to(device)
+    model_path = "data/models/spotify_model.pth"
+    if not os.path.exists(model_path):
+        raise HTTPException(status_code=500, detail="Local DNN model not found.")
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.eval()
+    
+    seed_emb = np.array(tracks[track_uri]["embedding"], dtype=np.float32)
+    
+    candidates = []
+    for t_uri, t_data in tracks.items():
+        if t_uri == track_uri:
+            continue
+        cand_emb = np.array(t_data["embedding"], dtype=np.float32)
+        
+        with torch.no_grad():
+            seed_t = torch.tensor(seed_emb).unsqueeze(0)
+            cand_t = torch.tensor(cand_emb).unsqueeze(0)
+            score = model(seed_t, cand_t).item()
+            
+        candidates.append({
+            "id": t_uri.replace("spotify:track:", ""),
+            "name": t_data["name"],
+            "artists": [t_data["artist"]],
+            "similarity_score": round(score, 4)
+        })
+        
+    candidates.sort(key=lambda x: x["similarity_score"], reverse=True)
+    return {"recommendations": candidates[:10]}

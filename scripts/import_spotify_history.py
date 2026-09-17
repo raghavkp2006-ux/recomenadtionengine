@@ -170,7 +170,7 @@ def search_artist_id(name: str, token: str) -> Optional[str]:
         "https://api.spotify.com/v1/search",
         headers={"Authorization": f"Bearer {token}"},
         params={"q": name, "type": "artist", "limit": 1},
-        timeout=5,
+        timeout=15,
     )
     if resp.status_code == 429:
         retry_after = int(resp.headers.get("Retry-After", 5))
@@ -352,8 +352,14 @@ def run_pipeline(folder: str, user_id: str, dry_run: bool = False) -> Dict[str, 
     print("\n" + "=" * 60)
     print("STEP 4: Genre enrichment via Spotify API")
     print("=" * 60)
-    token = get_client_credentials_token()
-    print(f"  Got client credentials token.")
+    try:
+        from services.spotify_sync import get_valid_access_token
+        token = get_valid_access_token(user_id)
+        if not token:
+            token = get_client_credentials_token()
+    except Exception:
+        token = get_client_credentials_token()
+    print(f"  Got access token.")
     ranked = enrich_with_genres(ranked, token)
 
     print(f"\n  Genre enrichment sample (top 10):")

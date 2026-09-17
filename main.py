@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from database import get_dynamodb_resource, init_db, get_user_by_id
-from routers import google_auth, spotify, spotify_import, anime, taste, anilist, connections, tourist_spots, movie, dining, myntra
+from routers import google_auth, spotify, spotify_import, anime, taste, anilist, connections, tourist_spots, movie, dining, myntra, preferences
 from services.auth import get_current_user_id, create_session_cookie
 from services.spotify_scheduler import start_scheduler, stop_scheduler
 from pydantic import BaseModel
@@ -95,6 +95,7 @@ app.include_router(connections.router)
 app.include_router(tourist_spots.router)
 app.include_router(dining.router)
 app.include_router(myntra.router)
+app.include_router(preferences.router)
 
 @app.get("/")
 def read_root():

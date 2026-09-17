@@ -10,10 +10,10 @@ import { ConvergenceHalo } from "./components/dashboard/ConvergenceHalo"
 import { OnboardingWizard } from "./components/onboarding/OnboardingWizard"
 import { cn } from "@/lib/utils"
 import { Button, Input } from "./components/ui"
-import { Search, Loader2 } from "lucide-react"
+import { Search, Loader2, Sun, Moon } from "lucide-react"
 import { colors } from "./tokens"
 import { Card, LineRail } from "./components/interchange"
-import { ThemeProvider } from "./components/ui/ThemeProvider"
+import { ThemeProvider, useTheme } from "./components/ui/ThemeProvider"
 import { ThemeToggleButton } from "./components/ui/ThemeToggleButton"
 import { TouristSpotsPage } from "./pages/TouristSpotsPage"
 import { MyntraPage } from "./pages/MyntraPage"
@@ -288,14 +288,62 @@ function PageWrapper({ title, children }: { title?: string; children: React.Reac
 // ── Settings section ─────────────────────────────────────────────────
 
 function SettingsSection() {
+  const { theme, setTheme } = useTheme()
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h2 className="text-2xl font-display font-bold text-foreground">Preferences</h2>
+      <div>
+        <h2 className="text-2xl font-display font-bold text-foreground">Preferences</h2>
+        <p className="text-sm font-sans text-muted-foreground mt-1">
+          Customize your experience across all linked devices.
+        </p>
+      </div>
+
       <Card className="relative overflow-hidden">
-        <div className="p-6">
-          <p className="text-sm font-sans text-muted-foreground">
-            More settings coming soon. Your taste signals are already being tuned automatically.
+        <div className="px-6 py-4 border-b border-[#E4E4E7] dark:border-[#27272A]">
+          <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
+            Appearance
+          </h3>
+          <p className="text-xs font-sans text-muted-foreground mt-0.5">
+            Choose how Poly Taste looks to you. Stored with your account.
           </p>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => setTheme("light")}
+              className={cn(
+                "flex flex-col items-center justify-center gap-3 p-4 rounded-xl border text-sm font-medium transition-all duration-150 cursor-pointer",
+                theme === "light"
+                  ? "border-[#2563EB] bg-[#2563EB]/10 text-[#2563EB] shadow-sm ring-1 ring-[#2563EB]"
+                  : "border-[#E4E4E7] dark:border-[#27272A] bg-black/[0.02] dark:bg-white/[0.02] text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Sun className="w-6 h-6" />
+              <span>Light Mode</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTheme("dark")}
+              className={cn(
+                "flex flex-col items-center justify-center gap-3 p-4 rounded-xl border text-sm font-medium transition-all duration-150 cursor-pointer",
+                theme === "dark"
+                  ? "border-[#2563EB] bg-[#2563EB]/10 text-[#2563EB] shadow-sm ring-1 ring-[#2563EB]"
+                  : "border-[#E4E4E7] dark:border-[#27272A] bg-black/[0.02] dark:bg-white/[0.02] text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Moon className="w-6 h-6" />
+              <span>Dark Mode</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 pt-2 text-xs font-mono text-muted-foreground">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span>Theme preference automatically synced to your account</span>
+          </div>
         </div>
       </Card>
     </div>

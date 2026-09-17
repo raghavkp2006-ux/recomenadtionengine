@@ -85,6 +85,7 @@ class User(Base):  # type: ignore[valid-type]
     email = Column(String, nullable=False)
     name = Column(String, nullable=True)
     picture_url = Column(String, nullable=True)
+    theme = Column(String, nullable=True, default="dark")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -94,6 +95,7 @@ class User(Base):  # type: ignore[valid-type]
             "email": self.email,
             "name": self.name,
             "picture_url": self.picture_url,
+            "theme": self.theme or "dark",
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -348,6 +350,12 @@ def init_db():
                 if "vote_average" not in m_columns:
                     conn.execute(text("ALTER TABLE movies ADD COLUMN vote_average REAL"))
 
+                # Migration for users table
+                u_result = conn.execute(text("PRAGMA table_info(users)"))
+                u_columns = [row[1] for row in u_result]
+                if "theme" not in u_columns:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN theme TEXT DEFAULT 'dark'"))
+
                 conn.execute(text("DROP TABLE IF EXISTS restaurants"))
                 conn.execute(text("DROP TABLE IF EXISTS restaurant_reviews"))
         except Exception as e:
@@ -432,6 +440,51 @@ def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
         user = db.query(User).filter(User.id == int(user_id)).first()
         return user.to_dict() if user else None
     except (ValueError, TypeError):
+        return None
+    finally:
+        db.close()
+
+def get_user_theme(user_id: str) -> str:
+    """Get theme preference for a user ('dark' or 'light', defaulting to 'dark')."""
+    db = SessionLocal()
+    try:
+        user = None
+        try:
+            user = db.query(User).filter(User.id == int(user_id)).first()
+        except (ValueError, TypeError):
+            pass
+        if not user:
+            user = db.query(User).filter(User.google_sub == user_id).first()
+
+        if user and user.theme:
+            return user.theme
+        return "dark"
+    except Exception as e:
+        print(f"[database] get_user_theme({user_id}): {e}")
+        return "dark"
+    finally:
+        db.close()
+
+def update_user_theme(user_id: str, theme: str) -> Optional[str]:
+    """Update theme preference for a user (by numeric ID or google_sub)."""
+    db = SessionLocal()
+    try:
+        user = None
+        try:
+            user = db.query(User).filter(User.id == int(user_id)).first()
+        except (ValueError, TypeError):
+            pass
+        if not user:
+            user = db.query(User).filter(User.google_sub == user_id).first()
+
+        if user:
+            user.theme = theme
+            db.commit()
+            return user.theme
+        return None
+    except Exception as e:
+        db.rollback()
+        print(f"[database] update_user_theme({user_id}): {e}")
         return None
     finally:
         db.close()

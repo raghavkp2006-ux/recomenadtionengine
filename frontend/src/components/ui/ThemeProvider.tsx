@@ -1,23 +1,42 @@
 import { createContext, useContext, useEffect, useState } from "react"
+import { api } from "../../api"
 
-type Theme = "light" | "dark"
+export type Theme = "light" | "dark"
 
 interface ThemeContextValue {
   theme: Theme
+  setTheme: (theme: Theme) => void
   toggleTheme: () => void
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "light",
+  setTheme: () => {},
   toggleTheme: () => {},
 })
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
+  const [theme, setThemeState] = useState<Theme>(() => {
     const stored = localStorage.getItem("poly-taste-theme") as Theme | null
-    if (stored) return stored
+    if (stored === "light" || stored === "dark") return stored
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
   })
+
+  // Reconcile with server-side preference on mount
+  useEffect(() => {
+    let isMounted = true
+    api.preferences.get()
+      .then((res) => {
+        if (isMounted && res.theme && (res.theme === "light" || res.theme === "dark")) {
+          setThemeState(res.theme)
+          localStorage.setItem("poly-taste-theme", res.theme)
+        }
+      })
+      .catch(() => {
+        // Unauthenticated or network error — keep local theme
+      })
+    return () => { isMounted = false }
+  }, [])
 
   useEffect(() => {
     const root = document.documentElement
@@ -29,10 +48,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("poly-taste-theme", theme)
   }, [theme])
 
-  const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"))
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme)
+    localStorage.setItem("poly-taste-theme", newTheme)
+    // Fire-and-forget sync to backend
+    api.preferences.update(newTheme).catch(() => {})
+  }
+
+  const toggleTheme = () => setTheme(theme === "light" ? "dark" : "light")
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   )

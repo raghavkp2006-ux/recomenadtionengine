@@ -43,6 +43,14 @@ export const api = {
     getConvergence: () =>
       fetchApi<{ score: number; segments: { label: string; value: number; maxValue: number }[] }>("/taste/convergence"),
   },
+  preferences: {
+    get: () => fetchApi<{ theme: string }>("/preferences"),
+    update: (theme: string) =>
+      fetchApi<{ theme: string }>("/preferences", {
+        method: "PUT",
+        body: JSON.stringify({ theme }),
+      }),
+  },
   anime: {
     getTop: () => fetchApi<any[]>("/anime/top"),
     search: async (q: string) => {
