@@ -1,1 +1,151 @@
-body{font:16px system-ui,sans-serif;color:#25243a;margin:0;background:#fafafa}main{max-width:640px;margin:48px auto;padding:28px;background:white;border-radius:12px;box-shadow:0 2px 16px #0001;display:grid;gap:16px}label{display:grid;gap:6px}input[type=url]{padding:9px;border:1px solid #bbb;border-radius:6px}button{width:max-content;background:#ff3f6c;border:0;border-radius:7px;padding:10px 14px;color:white;font-weight:600}p{line-height:1.5;color:#57566b}
+# Part 1 (Antigravity) — Apply Debug Instrumentation Scope: `extension/src/content/myntra-content.js` and `extension/tests/e2e-capture-test.mjs` ONLY. Audit first,
+paste diff before committing. ## Problem being diagnosed No events were captured on a real product page in the automated test,
+and no page error appeared at all — meaning we can't tell if the script even
+ ran. Two real gaps in the current code: 1. The "Enable parser debug information" checkbox on the Options page sets `settings.debug`,
+but `myntra-content.js` never reads `settings.debug` anywhere — it's a dead setting that does nothing.
+ 2. Errors thrown inside `inspectPage()` (called later via `setTimeout` from `schedule()`) are NOT caught by the outer `.catch(()=> {})` — that only wraps the initial setup. A thrown error currently disappears completely with no trace anywhere. ## Step 1 — Audit ```bash git status git diff -- extension/src/content/myntra-content.js ``` Paste output. Should be clean. ## Step 2 — Add debug logging+always-on error logging Replace the `inspectPage` function with this version,
+which logs key steps when `settings.debug` is true,
+and ALWAYS logs (not swallows) any thrown error regardless of the debug flag: ```js async function inspectPage() {
+  const settings=await getSettings();
+
+  if ( !settings.enabled) {
+    if (settings.debug) console.log("[PolyTaste] disabled, skipping");
+    return;
+  }
+
+  try {
+    const type=getPageType(location.href);
+
+    const signature=`$ {
+      type
+    }
+
+    |$ {
+      location.href
+    }
+
+    |$ {
+      document.title
+    }
+
+    `;
+
+    if (settings.debug) console.log("[PolyTaste] inspectPage", {
+      type, url: location.href, signature, lastSignature
+    });
+
+  if (signature===lastSignature) {
+    if (settings.debug) console.log("[PolyTaste] signature unchanged, skipping");
+    return;
+  }
+
+  lastSignature=signature;
+  if (activeProduct && activeProduct.pageUrl !==location.href) finishDwell();
+
+  if (type==="product" && settings.collectProductViews && !activeProduct) {
+    const product=parseProduct(document, location.href);
+    if (settings.debug) console.log("[PolyTaste] parsed product", product);
+
+    activeProduct= {
+      product,
+      pageUrl: location.href, startedAt: Date.now()
+    }
+
+    ;
+
+    emit(makeEvent("product_view", {
+        product
+      }));
+  renderRecommendations();
+}
+
+if (type==="search" && settings.collectSearch) {
+  const result=parseSearch(document, location.href);
+
+  emit(makeEvent("search", {
+      searchQuery: result.search_query
+    }));
+}
+
+if (type==="listing" && settings.collectProductViews) emit(makeEvent("listing_view", {
+    metadata: parseListing(document)
+  }));
+
+if (type==="wishlist" && settings.collectWishlist) emit(makeEvent("order_view", {
+    metadata: parseWishlist(document)
+  }));
+
+if (type==="cart" && settings.collectCart) emit(makeEvent("cart_add", {
+    metadata: parseCart(document)
+  }));
+
+if (type==="orders" && settings.collectOrders) emit(makeEvent("order_view", {
+    metadata: parseOrders(document)
+  }));
+}
+
+catch (error) {
+  console.error("[PolyTaste] inspectPage failed:", error);
+}
+}
+
+``` Also update `emit()` to log a warning instead of swallowing silently: ```js function emit(event) {
+  if (isDuplicate(event)) return;
+
+  try {
+    chrome.runtime.sendMessage({
+      type: "MYNTRA_EVENT", event
+    });
+}
+
+catch (error) {
+  console.warn("[PolyTaste] sendMessage failed (stale context?):", error.message);
+}
+}
+
+``` And add this line at the very top of the IIFE,
+right after the destructured imports resolve (unconditional — not gated by `settings.debug`, since this is the single most important line for confirming the script runs at all): ```js console.log("[PolyTaste] content script loaded on", location.href);
+
+``` ## Step 3 — Update the automated test script to enable debug mode too In `extension/tests/e2e-capture-test.mjs`,
+find the `chrome.storage.local.set` call that sets `enabled: true` and add `debug: true` alongside it: ```js settings: {
+  ...(settings || {}),
+  enabled: true,
+  debug: true,
+  backendBaseUrl: "https://recomenadtionengine-api.onrender.com"
+}
+
+,
+``` ## Step 4 — Run the automated test again ```bash cd extension node tests/e2e-capture-test.mjs ``` Paste EVERY line of output. ## Step 5 — Do not commit yet ```bash git diff --stat ``` Paste and wait for review before `git add`/`git commit`. --- # Part 2 (Raghav) — Manual Browser Test Do this yourself,
+in your normal Chrome,
+after Part 1's diff is approved
+ and applied: 1. `chrome: //extensions` → reload the unpacked extension (picks up the new
+code). 2. Close every existing Myntra tab. 3. Open the extension's **Options** page and make sure
+ "Enable parser debug information" is checked. Save settings. 4. Open a fresh tab,
+go to `myntra.com`. 5. Click into any real product page (the actual product detail page, not the listing/search page). 6. Right-click the page → **Inspect** → **Console** tab. 7. Look for this exact line: ``` [PolyTaste] content script loaded on ... ``` - **Not there at all** → the content script isn't injecting on this page
+ at all (next step would be checking manifest match patterns or page CSP — report back and we'll dig in).
+ - **It's there** → keep watching the console for a few seconds. You
+ should also see `[PolyTaste] inspectPage ...` and `[PolyTaste] parsed product ...` lines. 8. Open the extension popup and check "Events pending."
+
+  9. Paste back (or screenshot) everything from the console in step 7, plus the "Events pending" number from step 8.body {
+    font:16px system-ui, sans-serif; color:#25243a; margin:0; background:#fafafa
+  }
+
+  main {
+    max-width:640px; margin:48px auto; padding:28px; background:white; border-radius:12px; box-shadow:0 2px 16px #0001; display:grid; gap:16px
+  }
+
+  label {
+    display:grid; gap:6px
+  }
+
+  input[type=url] {
+    padding:9px; border:1px solid #bbb; border-radius:6px
+  }
+
+  button {
+    width:max-content; background:#ff3f6c; border:0; border-radius:7px; padding:10px 14px; color:white; font-weight:600
+  }
+
+  p {
+    line-height:1.5; color:#57566b
+  }
