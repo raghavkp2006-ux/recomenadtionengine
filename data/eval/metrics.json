@@ -1,0 +1,50 @@
+{
+  "anime": {
+    "mse": 0.0015428060432896018,
+    "latent_std": 0.04275723546743393,
+    "precision": 0.7316326530612245,
+    "recall": 0.6783349101229896,
+    "f1": 0.7039764359351989
+  },
+  "movies": {
+    "vocab_size": 5000,
+    "precision": 0.816,
+    "recall": 0.6310904872389791,
+    "f1": 0.7117313563017881
+  },
+  "spotify": {
+    "status": "Limitation",
+    "message": "track_embeddings.json does not store genre tags for any track (only embedding/name/artist) \u2014 genre-overlap evaluation is not obtainable from this artifact, regardless of dataset size."
+  },
+  "tourist_spots": {
+    "n": 4,
+    "users": 4,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "caveat": "Directional only \u2014 sample too small for a reliable confusion matrix (n=4)"
+  },
+  "dining": {
+    "n": 0,
+    "ground_truth": "none",
+    "caveat": "no feedback data exists \u2014 precision/recall not measurable."
+  },
+  "myntra": {
+    "ground_truth": "none \u2014 MyntraFeedback and MyntraEvent both empty",
+    "score_distribution": {
+      "min": null,
+      "median": null,
+      "max": null
+    }
+  },
+  "cross_domain": {
+    "n_users_evaluated": 4,
+    "convergence_distribution": {
+      "min": 20.0,
+      "median": 20.0,
+      "mean": 20.0,
+      "max": 20.0
+    },
+    "caveat": "identical score across all evaluated users \u2014 small n, not yet confirmed as a general pattern"
+  }
+}
