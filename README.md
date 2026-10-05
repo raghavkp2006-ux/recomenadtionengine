@@ -12,7 +12,7 @@ User-controlled Myntra page activity integration. See [the extension README](ext
 
 ### Auth / Session
 
-The app uses a signed cookie session for authentication, established via Google Sign-In (keyed on `google_sub`). Spotify and AniList are optional secondary connections linked to this primary Google session to pull listening/watch data into the taste profile. They do not create or overwrite the session on their own.
+Google Sign-In is the primary login. Google identities are stored by `google_sub`; the signed session cookie carries the internal `User.id`. Spotify and AniList are optional secondary Connect flows linked to this Google session to pull listening/watch data into the taste profile. They do not create or overwrite the session on their own.
 
 #### Endpoints
 
@@ -146,11 +146,11 @@ Edit `.env` and fill in:
 | `GOOGLE_CLIENT_ID` | Google Sign-In | [console.cloud.google.com](https://console.cloud.google.com/) |
 | `GOOGLE_CLIENT_SECRET` | Google Sign-In | Same app settings page |
 | `GOOGLE_REDIRECT_URI` | Google Sign-In | Set to your frontend origin's callback, e.g. `http://localhost:5173/#id_token=` |
-| `SPOTIFY_CLIENT_ID` | Spotify endpoints | [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) |
-| `SPOTIFY_CLIENT_SECRET` | Spotify endpoints | Same app settings page |
+| `SPOTIFY_CLIENT_ID` | Optional Spotify Connect | [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) |
+| `SPOTIFY_CLIENT_SECRET` | Optional Spotify Connect | Same app settings page |
 | `SPOTIFY_REDIRECT_URI` | Spotify OAuth | Set to `http://127.0.0.1:8000/spotify/callback` exactly. **Note:** Access the app via `http://127.0.0.1:8000`, not `localhost`. Spotify apps in Development Mode are capped at 5 test users — new teammates must be added as testers on the Spotify Developer Dashboard before they can authenticate. |
-| `ANILIST_CLIENT_ID` | AniList connect | [anilist.co/settings/developer](https://anilist.co/settings/developer) |
-| `ANILIST_CLIENT_SECRET` | AniList connect | Same app settings page |
+| `ANILIST_CLIENT_ID` | Optional AniList Connect | [anilist.co/settings/developer](https://anilist.co/settings/developer) |
+| `ANILIST_CLIENT_SECRET` | Optional AniList Connect | Same app settings page |
 | `ANILIST_REDIRECT_URI` | AniList OAuth | Set to `http://127.0.0.1:8000/anilist/callback` exactly |
 | `TMDB_API_KEY` | Movie catalog fetch | [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) — free Developer key |
 | `SESSION_SECRET_KEY` | App authentication | Set to a random secure string in production |

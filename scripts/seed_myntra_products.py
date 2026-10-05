@@ -80,6 +80,45 @@ def extract_first_image(images_str: Any) -> Optional[str]:
     return None
 
 
+def gender_column(df: pd.DataFrame) -> str:
+    columns = {str(name).strip().casefold(): name for name in df.columns}
+    for name in ("ideal_for", "gender"):
+        if name in columns:
+            return columns[name]
+    raise ValueError("Myntra CSV must contain an ideal_for or gender column")
+
+
+def sample_by_gender(df: pd.DataFrame, limit: Optional[int] = 500) -> pd.DataFrame:
+    """Sample equal gender shares, redistributing shortages, with seed 42.
+
+    Preserve source indices for stable fallback product IDs. Duplicate known
+    product IDs are removed before sampling so variants do not consume slots.
+    """
+    if limit is not None and limit < 0:
+        raise ValueError("limit must be nonnegative")
+    if "product_id" in df:
+        duplicate = df["product_id"].notna() & df["product_id"].duplicated()
+        df = df.loc[~duplicate]
+    column = gender_column(df)
+    target = len(df) if limit is None else min(limit, len(df))
+    if target == 0:
+        return df.iloc[:0].copy()
+    labels = df[column].fillna("unknown").astype(str).str.strip().str.casefold().replace("", "unknown")
+    groups = {label: df.loc[labels == label] for label in sorted(labels.unique())}
+    allocation = {label: 0 for label in groups}
+    remaining = target
+    while remaining:
+        active = [label for label, group in groups.items() if allocation[label] < len(group)]
+        share, extra = divmod(remaining, len(active))
+        for index, label in enumerate(active):
+            take = min(len(groups[label]) - allocation[label], share + (index < extra))
+            allocation[label] += take
+            remaining -= take
+    sampled = [group.sample(n=allocation[label], random_state=42)
+               for label, group in groups.items() if allocation[label]]
+    return pd.concat(sampled).sample(frac=1, random_state=42)
+
+
 def map_row_to_product(row: pd.Series, index: int, now: datetime) -> Optional[Dict[str, Any]]:
     # 1. Product ID
     raw_pid = row.get("product_id")
@@ -99,7 +138,9 @@ def map_row_to_product(row: pd.Series, index: int, now: datetime) -> Optional[Di
         return None
 
     cat, subcat = extract_category_and_sub(row.get("type"), row.get("product_type"))
-    gender = clean_str(row.get("ideal_for"))
+    gender = clean_str(row.get("ideal_for")) or clean_str(row.get("gender"))
+    if not gender:
+        gender = clean_str(row.get(gender_column(row.to_frame().T)))
 
     price = clean_float(row.get("variant_price"))
     mrp = clean_float(row.get("variant_compare_at_price"))
@@ -163,7 +204,7 @@ def map_row_to_product(row: pd.Series, index: int, now: datetime) -> Optional[Di
     }
 
 
-def seed(csv_path: str, limit: Optional[int] = None, dry_run: bool = False, batch_size: int = 500):
+def seed(csv_path: str, limit: Optional[int] = 500, dry_run: bool = False, batch_size: int = 500):
     if not os.path.exists(csv_path):
         print(f"Error: CSV file not found at {csv_path}")
         sys.exit(1)
@@ -173,14 +214,15 @@ def seed(csv_path: str, limit: Optional[int] = None, dry_run: bool = False, batc
     total_in_csv = len(df)
     print(f"Loaded {total_in_csv} rows from CSV.")
 
-    if limit is not None and limit > 0:
-        df = df.iloc[:limit]
-        print(f"Applying limit: processing first {len(df)} rows.")
+    df = sample_by_gender(df, limit)
+    print(f"Stratified sample: processing {len(df)} rows (random_state=42).")
+    print(df[gender_column(df)].fillna("unknown").value_counts().to_string())
 
     db = SessionLocal()
     try:
         # Ensure tables exist
-        Base.metadata.create_all(bind=engine)
+        if not dry_run:
+            Base.metadata.create_all(bind=engine)
 
         print("Querying existing product_ids from database...")
         existing_tuples = db.query(MyntraProduct.product_id).all()
@@ -251,7 +293,7 @@ def main():
         default="data/myntra_seed/myntra_products.csv",
         help="Path to the Myntra CSV file (default: data/myntra_seed/myntra_products.csv)",
     )
-    parser.add_argument("--limit", type=int, default=None, help="Maximum number of rows to process")
+    parser.add_argument("--limit", type=int, default=500, help="Stratified sample size (default: 500)")
     parser.add_argument("--dry-run", action="store_true", help="Simulate without writing to database")
     parser.add_argument("--batch-size", type=int, default=500, help="Batch commit size")
     args = parser.parse_args()
