@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/**/*.test.js"
+    "test": "node --test tests/collection-parser.test.js tests/product-parser.test.js tests/queue.test.js tests/search-listing-parser.test.js"
   },
   "devDependencies": {
     "playwright": "^1.63.0"
