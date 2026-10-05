@@ -623,8 +623,22 @@ def compute_convergence(profile_data: Dict[str, Any]) -> Dict[str, Any]:
     anime_combined = _merge_profiles(anime, anilist)  # reuse existing helper
 
     # --- Coverage ---
+    def has_signal(value: Any) -> bool:
+        # Myntra always returns a structured dict, even with no activity.
+        # Empty buckets, None price metadata and zero genre weights are not
+        # evidence of a connected domain. Nonzero dislikes are still signal.
+        if isinstance(value, dict):
+            return any(has_signal(item) for item in value.values())
+        if isinstance(value, (list, tuple)):
+            return any(has_signal(item) for item in value)
+        if isinstance(value, (int, float)):
+            return math.isfinite(value) and value != 0
+        if isinstance(value, str):
+            return bool(value.strip())
+        return False
+
     domains = [spotify, anime_combined, movie, myntra]
-    connected_count = sum(1 for d in domains if d)
+    connected_count = sum(1 for d in domains if has_signal(d))
     coverage = (connected_count / 4) * 40
 
     # --- Cross-domain agreement ---
