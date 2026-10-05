@@ -16,6 +16,6 @@ jobs:
         with:
           node-version: '20'
       - run: pip install -r requirements.txt pytest
-      - run: pytest tests/test_myntra_schemas.py tests/test_myntra_models.py tests/test_myntra_ingestion.py tests/test_myntra_rate_limit.py -q
+      - run: python -m pytest tests/test_myntra_schemas.py tests/test_myntra_models.py tests/test_myntra_ingestion.py tests/test_myntra_rate_limit.py -q
       - working-directory: extension
         run: npm test
