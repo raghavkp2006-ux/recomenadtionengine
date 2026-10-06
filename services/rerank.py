@@ -68,11 +68,12 @@ def rerank(candidates: Sequence[Mapping[str, Any]], scores: Sequence[float], vec
     adjusted = base.copy()
     for i, vec in enumerate(vectors):
         if positive:
-            adjusted[i] += 0.12 * max(cosine(vec, x) for x in positive)
+            adjusted[i] += 0.45 * max(cosine(vec, x) for x in positive)
         if negative:
             adjusted[i] -= 0.07 * max(cosine(vec, x) for x in negative)
 
-    pool = [i for i, c in enumerate(candidates) if str(c.get("id")) not in seen | disliked]
+    pool = [i for i, c in enumerate(candidates)
+            if str(c.get("id")) not in seen | disliked | liked]
     pool.sort(key=lambda i: adjusted[i], reverse=True)
     pool = pool[:40]
     seed = int(hashlib.sha256(f"{user_id}:{day}".encode()).hexdigest()[:16], 16)

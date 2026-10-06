@@ -64,12 +64,14 @@ def get_recommendations(
     - If liked_ids empty/omitted: auto-seed using movies with personal_rating >= 7.0
       weighted by (personal_rating - 5.5).
     """
-    recommendations = get_taste_vector_recommendations(liked_ids=request.liked_ids, n=max(40, n))
-    vectors = [tfidf_matrix[_resolve_movie_index(item["id"])] for item in recommendations]
-    scores = [float(item.get("score", 0.0)) for item in recommendations]
     db = SessionLocal()
     try:
         feedback_rows = db.query(RecommendationFeedback).filter_by(user_id=user_id, domain="movie").all()
+        feedback_likes = [str(row.item_id) for row in feedback_rows if row.action == "like"]
+        liked_ids = list(dict.fromkeys((request.liked_ids or []) + feedback_likes))
+        recommendations = get_taste_vector_recommendations(liked_ids=liked_ids or None, n=max(40, n))
+        vectors = [tfidf_matrix[_resolve_movie_index(item["id"])] for item in recommendations]
+        scores = [float(item.get("score", 0.0)) for item in recommendations]
         candidate_ids = [int(item["id"]) for item in recommendations if str(item["id"]).isdigit()]
         rated = {str(m.tmdb_id): m.personal_rating for m in db.query(Movie).filter(
             Movie.tmdb_id.in_(candidate_ids)).all()}
