@@ -7,7 +7,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-from services.auth import create_session_cookie
+from services.auth import create_session_cookie, SESSION_COOKIE_SECURE, SESSION_COOKIE_SAMESITE
 from database import upsert_google_user
 
 load_dotenv()
@@ -139,8 +139,8 @@ def google_callback(code: str | None = None, error: str | None = None):
         key="session",
         value=session_cookie,
         httponly=True,
-        samesite="none",
-        secure=True,
+        samesite=SESSION_COOKIE_SAMESITE,
+        secure=SESSION_COOKIE_SECURE,
         path="/",
         max_age=30 * 24 * 60 * 60,
     )
@@ -202,8 +202,8 @@ def google_callback_post(req: GoogleTokenRequest, response: Response):
         key="session",
         value=session_cookie,
         httponly=True,
-        samesite="none",
-        secure=True,
+        samesite=SESSION_COOKIE_SAMESITE,
+        secure=SESSION_COOKIE_SECURE,
         path="/",
         max_age=30 * 24 * 60 * 60,
     )

@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from database import get_dynamodb_resource, init_db, get_user_by_id
 from routers import google_auth, spotify, spotify_import, anime, taste, anilist, connections, tourist_spots, movie, dining, myntra, preferences
-from services.auth import get_current_user_id, create_session_cookie
+from services.auth import get_current_user_id, create_session_cookie, SESSION_COOKIE_SECURE, SESSION_COOKIE_SAMESITE
 from services.spotify_scheduler import start_scheduler, stop_scheduler
 from pydantic import BaseModel
 from fastapi import HTTPException
@@ -125,8 +125,8 @@ def login(req: LoginRequest, response: Response):
             key="session",
             value=session_cookie,
             httponly=True,
-            samesite="none",
-            secure=True,
+            samesite=SESSION_COOKIE_SAMESITE,
+            secure=SESSION_COOKIE_SECURE,
             path="/",
             max_age=30 * 24 * 60 * 60
         )
@@ -136,7 +136,7 @@ def login(req: LoginRequest, response: Response):
 
 @app.post("/auth/logout")
 def logout(response: Response):
-    response.delete_cookie(key="session", path="/", httponly=True, samesite="none", secure=True)
+    response.delete_cookie(key="session", path="/", httponly=True, samesite=SESSION_COOKIE_SAMESITE, secure=SESSION_COOKIE_SECURE)
     return {"message": "Logged out successfully"}
 
 @app.get("/api/activity")

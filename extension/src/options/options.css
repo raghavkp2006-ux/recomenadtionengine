@@ -111,7 +111,7 @@ find the `chrome.storage.local.set` call that sets `enabled: true` and add `debu
   ...(settings || {}),
   enabled: true,
   debug: true,
-  backendBaseUrl: "https://recomenadtionengine-api.onrender.com"
+  backendBaseUrl: "http://127.0.0.1:8000"
 }
 
 ,

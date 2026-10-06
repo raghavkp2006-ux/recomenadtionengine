@@ -13,6 +13,10 @@ if os.getenv("ENV") == "production" and (not os.getenv("SESSION_SECRET_KEY") or 
         "SESSION_SECRET_KEY must be set to a secure custom value when ENV=production."
     )
 
+# HTTP cookies are permitted only when local development is explicitly selected.
+SESSION_COOKIE_SECURE = os.getenv("ENV") != "local"
+SESSION_COOKIE_SAMESITE = "lax" if os.getenv("ENV") == "local" else "none"
+
 serializer = URLSafeSerializer(SESSION_SECRET_KEY, salt="session-cookie")
 state_serializer = URLSafeSerializer(SESSION_SECRET_KEY, salt="oauth-state")
 
