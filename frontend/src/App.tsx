@@ -353,6 +353,16 @@ function SettingsSection() {
 function MusicRecommendationsPage({ isConnected }: { isConnected: boolean }) {
   const [recommendations, setRecommendations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const refreshRecommendations = async () => {
+    setRefreshing(true)
+    try {
+      setRecommendations(await api.recommendations.getByCategory("music"))
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -403,26 +413,36 @@ function MusicRecommendationsPage({ isConnected }: { isConnected: boolean }) {
             </div>
           </>
         )}
+        <button className="rounded border px-3 py-1.5 text-xs" onClick={refreshRecommendations} disabled={refreshing}>
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-wrap gap-4 p-4">
-      {recommendations.map((r, i) => (
-        <SignalCard 
-          key={r.id} 
-          item={r} 
-          index={i} 
-          category="music"
-          meta={DOMAIN.music}
-          onNavigate={() => {}}
-          onFeedback={async (id, action) => {
-            await api.recommendations.feedback("music", id, action)
-            setRecommendations(await api.recommendations.getByCategory("music"))
-          }}
-        />
-      ))}
+    <div className="p-4">
+      <div className="mb-3 flex justify-end">
+        <button className="rounded border px-3 py-1.5 text-xs" onClick={refreshRecommendations} disabled={refreshing}>
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-4">
+        {recommendations.map((r, i) => (
+          <SignalCard
+            key={r.id}
+            item={r}
+            index={i}
+            category="music"
+            meta={DOMAIN.music}
+            onNavigate={() => {}}
+            onFeedback={async (id, action) => {
+              await api.recommendations.feedback("music", id, action)
+              setRecommendations(await api.recommendations.getByCategory("music"))
+            }}
+          />
+        ))}
+      </div>
     </div>
   )
 }
@@ -431,6 +451,19 @@ function MoviesRecommendationsPage() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const refreshRecommendations = async () => {
+    setRefreshing(true)
+    try {
+      setRecommendations(await api.recommendations.getByCategory("movie"))
+      setError(null)
+    } catch (err: any) {
+      setError(err.message || "Failed to load movie recommendations.")
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -449,27 +482,37 @@ function MoviesRecommendationsPage() {
   if (recommendations.length === 0) {
     return (
       <div className="p-6 text-sm text-muted-foreground">
-        No movie recommendations yet — rate or like some movies to build your taste profile.
+        <p>No movie recommendations yet — rate or like some movies to build your taste profile.</p>
+        <button className="mt-3 rounded border px-3 py-1.5 text-xs" onClick={refreshRecommendations} disabled={refreshing}>
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-wrap gap-4 p-4">
-      {recommendations.map((r, i) => (
-        <SignalCard
-          key={r.id}
-          item={r}
-          index={i}
-          category="movie"
-          meta={DOMAIN.movie}
-          onNavigate={() => {}}
-          onFeedback={async (id, action) => {
-            await api.recommendations.feedback("movie", id, action)
-            setRecommendations(await api.recommendations.getByCategory("movie"))
-          }}
-        />
-      ))}
+    <div className="p-4">
+      <div className="mb-3 flex justify-end">
+        <button className="rounded border px-3 py-1.5 text-xs" onClick={refreshRecommendations} disabled={refreshing}>
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-4">
+        {recommendations.map((r, i) => (
+          <SignalCard
+            key={r.id}
+            item={r}
+            index={i}
+            category="movie"
+            meta={DOMAIN.movie}
+            onNavigate={() => {}}
+            onFeedback={async (id, action) => {
+              await api.recommendations.feedback("movie", id, action)
+              setRecommendations(await api.recommendations.getByCategory("movie"))
+            }}
+          />
+        ))}
+      </div>
     </div>
   )
 }

@@ -128,7 +128,7 @@ export const api = {
             id: String(r.id),
             title: r.title || "Unknown Movie",
             reason: r.reason || "Recommended for you",
-            imageUrl: r.imageUrl || "",
+            imageUrl: r.poster_url || r.imageUrl || "",
             score: typeof r.score === "number" ? (r.score <= 1 ? Math.round(r.score * 100) : r.score) : 0,
             category: "movie" as const,
           }));

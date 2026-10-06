@@ -27,6 +27,8 @@ from services.movie_recommender import (
 )
 from database import Movie, RecommendationFeedback, SessionLocal
 from services.auth import get_current_user_id
+from services.spotify_sync import get_valid_access_token
+from services.taste_profile import get_movie_boost_map
 from services.rerank import rerank
 from datetime import datetime, timezone
 
@@ -66,18 +68,75 @@ def get_recommendations(
     """
     db = SessionLocal()
     try:
+        def full_catalog():
+            rows = []
+            for movie_id, meta in movie_data_map.items():
+                poster = meta.get("poster_url") or ""
+                rows.append({"id": str(movie_id), "title": meta.get("title", "Unknown"),
+                             "imageUrl": poster, "poster_url": poster,
+                             "reason": "A rotating pick from the movie catalog", "category": "movie",
+                             "genres": meta.get("genres", [])})
+            return rows
+
         feedback_rows = db.query(RecommendationFeedback).filter_by(user_id=user_id, domain="movie").all()
         feedback_likes = [str(row.item_id) for row in feedback_rows if row.action == "like"]
         liked_ids = list(dict.fromkeys((request.liked_ids or []) + feedback_likes))
-        recommendations = get_taste_vector_recommendations(liked_ids=liked_ids or None, n=max(40, n))
+        rating_count = db.query(Movie).filter(Movie.personal_rating.isnot(None)).count()
+        source = "feedback_profile" if liked_ids else ("personal_ratings" if rating_count else "sampling_fallback")
+        if not liked_ids and not rating_count:
+            spotify_token = None
+            try:
+                spotify_token = get_valid_access_token(user_id)
+            except Exception:
+                pass
+            try:
+                movie_profile = get_movie_boost_map(user_id, spotify_token=spotify_token)
+            except Exception as exc:
+                print(f"[movie] taste crosswalk unavailable for {user_id}: {exc}")
+                movie_profile = {}
+
+            if movie_profile and movie_data_map:
+                profile_by_genre = {str(key).lower(): float(value) for key, value in movie_profile.items()}
+                candidates = []
+                scores = []
+                for movie_id, meta in movie_data_map.items():
+                    genres = meta.get("genres") or []
+                    score = sum(profile_by_genre.get(str(genre).lower(), 0.0) for genre in genres)
+                    if score > 0:
+                        candidates.append({"id": str(movie_id), "title": meta.get("title", "Unknown"),
+                                           "imageUrl": meta.get("poster_url") or "", "poster_url": meta.get("poster_url") or "",
+                                           "reason": "Matched to your cross-domain taste profile", "category": "movie",
+                                           "genres": genres})
+                        scores.append(float(score))
+                if candidates:
+                    recommendations = candidates
+                    source = "crosswalk_profile"
+                else:
+                    recommendations = full_catalog()
+            else:
+                recommendations = full_catalog()
+        else:
+            recommendations = get_taste_vector_recommendations(liked_ids=liked_ids or None, n=max(60, n))
+            scores = [float(item.get("score", 0.0)) for item in recommendations]
+
+        if source == "sampling_fallback":
+            scores = [float(movie_data_map.get(str(item["id"]), {}).get("vote_average") or 0.0)
+                      for item in recommendations]
+        elif source != "crosswalk_profile":
+            scores = [float(item.get("score", 0.0)) for item in recommendations]
+
         vectors = [tfidf_matrix[_resolve_movie_index(item["id"])] for item in recommendations]
-        scores = [float(item.get("score", 0.0)) for item in recommendations]
         candidate_ids = [int(item["id"]) for item in recommendations if str(item["id"]).isdigit()]
         rated = {str(m.tmdb_id): m.personal_rating for m in db.query(Movie).filter(
             Movie.tmdb_id.in_(candidate_ids)).all()}
         scores = [score + (float(rated.get(str(item["id"])) or 0.0) / 10.0) * 0.15
                   for item, score in zip(recommendations, scores)]
         reranked = rerank(recommendations, scores, vectors, user_id=user_id, feedback=feedback_rows, k=n)
+        for item in reranked:
+            meta = movie_data_map.get(str(item["id"]), {})
+            poster = item.get("poster_url") or item.get("imageUrl") or meta.get("poster_url") or ""
+            item["poster_url"] = poster
+            item["imageUrl"] = poster
         now = datetime.now(timezone.utc)
         db.add_all([RecommendationFeedback(user_id=user_id, domain="movie", item_id=str(item["id"]),
                                             action="shown", created_at=now) for item in reranked])
@@ -85,7 +144,7 @@ def get_recommendations(
         recommendations = reranked
     finally:
         db.close()
-    return {"recommendations": recommendations}
+    return {"recommendations": recommendations, "source": source}
 
 
 # ===========================================================================
