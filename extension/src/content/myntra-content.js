@@ -1,7 +1,7 @@
 // MV3 content scripts are classic scripts. Dynamic imports keep parser modules
 // testable without requiring a bundler or broad extension permissions.
 (async () => {
-const [{ getSettings }, { getPageType }, { parseProduct }, { parseSearch }, { parseListing }, { parseWishlist, parseCart, parseOrders }, { makeEvent }, { isDuplicate }] = await Promise.all([
+const [{ getSettings }, { getPageType }, { parseProduct }, { parseSearch }, { parseListing }, { parseWishlist, parseCart, parseOrders }, { makeEvent }, { isDuplicate }, { showVerdictBadge, removeExistingBadge }] = await Promise.all([
   import(chrome.runtime.getURL("src/storage/local-store.js")),
   import(chrome.runtime.getURL("src/content/url.js")),
   import(chrome.runtime.getURL("src/content/parser/product-parser.js")),
@@ -10,6 +10,7 @@ const [{ getSettings }, { getPageType }, { parseProduct }, { parseSearch }, { pa
   import(chrome.runtime.getURL("src/content/parser/collection-parser.js")),
   import(chrome.runtime.getURL("src/content/events/event-builder.js")),
   import(chrome.runtime.getURL("src/content/events/event-deduplicator.js")),
+  import(chrome.runtime.getURL("src/content/verdict-badge.js")),
 ]);
 console.log("[PolyTaste] content script loaded on", location.href);
 let lastSignature = "";
@@ -59,12 +60,17 @@ async function inspectPage() {
     if (signature === lastSignature) { if (settings.debug) console.log("[PolyTaste] signature unchanged, skipping"); return; }
     lastSignature = signature;
     if (activeProduct && activeProduct.pageUrl !== location.href) finishDwell();
-    if (type === "product" && settings.collectProductViews && !activeProduct) {
+    if (type === "product") {
       const product = parseProduct(document, location.href);
       if (settings.debug) console.log("[PolyTaste] parsed product", product);
-      activeProduct = { product, pageUrl: location.href, startedAt: Date.now() };
-      emit(makeEvent("product_view", { product }));
-      renderRecommendations();
+      if (settings.collectProductViews && !activeProduct) {
+        activeProduct = { product, pageUrl: location.href, startedAt: Date.now() };
+        emit(makeEvent("product_view", { product }));
+        renderRecommendations();
+      }
+      showVerdictBadge(product, settings);
+    } else {
+      removeExistingBadge();
     }
     if (type === "search" && settings.collectSearch) { const result = parseSearch(document, location.href); emit(makeEvent("search", { searchQuery: result.search_query })); }
     if (type === "listing" && settings.collectProductViews) emit(makeEvent("listing_view", { metadata: parseListing(document) }));

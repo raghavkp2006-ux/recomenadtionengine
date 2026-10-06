@@ -20,6 +20,7 @@
       "resources": [
         "src/storage/local-store.js",
         "src/content/url.js",
+        "src/content/verdict-badge.js",
         "src/content/parser/product-parser.js",
         "src/content/parser/search-parser.js",
         "src/content/parser/listing-parser.js",

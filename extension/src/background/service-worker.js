@@ -1,4 +1,5 @@
 import { apiClient } from "../api/api-client.js";
+import { openBackendLogin } from "../api/auth-client.js";
 import { getSettings, updateSyncState } from "../storage/local-store.js";
 import { enqueue, peekBatch, removeByEventIds } from "../storage/queue.js";
 
@@ -39,6 +40,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if (message?.type === "GET_RECOMMENDATIONS") {
     apiClient.recommendations().then((result) => sendResponse(result)).catch((error) => sendResponse({ recommendations: [], error: error.message }));
+    return true;
+  }
+  if (message?.type === "GET_VERDICT") {
+    apiClient.verdict(message.product)
+      .then((result) => sendResponse({ ok: true, verdict: result }))
+      .catch((error) => sendResponse({
+        ok: false,
+        error: error.message,
+        status: error.status || (error.message?.includes("401") ? 401 : null),
+      }));
+    return true;
+  }
+  if (message?.type === "OPEN_LOGIN") {
+    openBackendLogin()
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
   return false;

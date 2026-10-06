@@ -10,7 +10,9 @@ async function request(path, options = {}) {
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body?.error?.message || body?.detail || `Request failed (${response.status})`);
+    const err = new Error(body?.error?.message || body?.detail || `Request failed (${response.status})`);
+    err.status = response.status;
+    throw err;
   }
   return response.status === 204 ? null : response.json();
 }
@@ -33,4 +35,5 @@ export const apiClient = {
   feedback: (product_id, feedback) => request("/myntra/feedback", { method: "POST", body: JSON.stringify({ product_id, feedback }) }),
   deleteData: () => request("/myntra/data", { method: "DELETE" }),
   exportCsv: () => download("/myntra/export.csv", "myntra-history.csv"),
+  verdict: (product) => request("/myntra/verdict", { method: "POST", body: JSON.stringify({ product }) }),
 };
