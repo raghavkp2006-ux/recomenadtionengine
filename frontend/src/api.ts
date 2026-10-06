@@ -227,6 +227,82 @@ export const api = {
     exportCsvUrl: `${API_BASE}/myntra/export.csv`,
     getRecentlyViewed: (limit = 15) =>
       fetchApi<{ total_events: number; products: any[] }>(`/myntra/history/products?limit=${limit}`),
+    getVerdicts: (params?: { gender?: string; limit?: number }) => {
+      const searchParams = new URLSearchParams()
+      if (params?.gender && params.gender !== "all") searchParams.append("gender", params.gender)
+      if (params?.limit !== undefined) searchParams.append("limit", String(params.limit))
+      const qs = searchParams.toString() ? `?${searchParams.toString()}` : ""
+      return fetchApi<{
+        summary: {
+          events: number
+          last_event_at: string | null
+          signals: {
+            myntra: boolean
+            spotify: boolean
+            anilist: boolean
+            movies: boolean
+          }
+          confidence: "low" | "medium" | "high"
+          price_range: {
+            min: number | null
+            median: number | null
+            max: number | null
+          }
+          top_colours: string[]
+          top_categories: string[]
+          gender_filter: string
+        }
+        counts: {
+          buy: number
+          consider: number
+          skip: number
+        }
+        items: Array<{
+          product_id: string
+          product_url: string
+          brand: string
+          title: string
+          category: string
+          price: number
+          currency: string
+          image_url: string
+          verdict: "BUY" | "CONSIDER" | "SKIP"
+          fit: number
+          components: {
+            direct: number
+            crosswalk: number
+            price: number
+            redundancy: number
+          }
+          reasons: Array<{
+            domain: string
+            text: string
+            evidence: Record<string, any>
+          }>
+          price_note: string
+        }>
+      }>(`/myntra/verdicts${qs}`)
+    },
+    verdict: (payload: { product_id?: string; product?: Record<string, any> }) =>
+      fetchApi<{
+        status: string
+        product_id: string
+        product_url?: string
+        brand?: string
+        title?: string
+        category?: string
+        price?: number
+        currency?: string
+        image_url?: string
+        verdict?: "BUY" | "CONSIDER" | "SKIP" | null
+        fit?: number | null
+        components?: Record<string, number> | null
+        reasons?: Array<{ domain: string; text: string; evidence: Record<string, any> }>
+        price_note?: string
+      }>("/myntra/verdict", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
   },
   touristSpots: {
     getAll: (category?: string, price_tier?: string) => {
