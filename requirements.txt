@@ -13,3 +13,4 @@ kagglehub
 numpy
 psycopg2-binary
 apscheduler
+httpx2
