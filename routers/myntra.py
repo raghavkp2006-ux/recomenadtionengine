@@ -7,16 +7,26 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 import csv
 import io
 import json
+import time
 from sqlalchemy.orm import Session
 
-from database import get_db
-from schemas.myntra import MyntraBatchEventRequest, MyntraConnectionPayload, MyntraEventPayload, MyntraFeedbackPayload
+from database import get_db, get_user
+from schemas.myntra import (
+    MyntraBatchEventRequest,
+    MyntraConnectionPayload,
+    MyntraEventPayload,
+    MyntraFeedbackPayload,
+    MyntraVerdictRequest,
+)
 from services.auth import get_current_user_id
 from services.myntra_events import EventOwnershipConflictError, get_event_status, get_history, ingest_event, serialize_event
 from services.myntra_profile import get_profile, rebuild_profile
 from services.myntra_recommender import recommendations
 from services.myntra_agent import recommend_outfit
 from services.myntra_rate_limit import allow as rate_limit_allow
+from services.myntra_verdict import score_feed, score_single
+from services.spotify_sync import refresh_spotify_token
+from services.taste_profile import compute_taste_profile
 from models.myntra import MyntraConnection, MyntraEvent, MyntraFeedback, MyntraProduct, MyntraProfile
 
 
@@ -27,6 +37,25 @@ def check_ingestion_rate(user_id: str = Depends(get_current_user_id)) -> str:
     if not rate_limit_allow(user_id):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Myntra event ingestion rate limit exceeded")
     return user_id
+
+
+def _get_user_taste(user_id: str) -> dict:
+    spotify_token = None
+    try:
+        user_record = get_user(user_id)
+        if user_record:
+            if user_record.get("expires_at", 0) > int(time.time()):
+                spotify_token = user_record.get("access_token")
+            else:
+                spotify_token = refresh_spotify_token(user_record)
+    except Exception as e:
+        print(f"[myntra_verdict] Spotify token resolution failed for user {user_id}: {e}")
+
+    try:
+        return compute_taste_profile(user_id, spotify_token=spotify_token)
+    except Exception as e:
+        print(f"[myntra_verdict] Media taste profile failed for user {user_id}: {e}")
+        return {"profile": {}, "breakdown": {}}
 
 
 @router.get("/health")
@@ -156,6 +185,38 @@ def rebuild(db: Session = Depends(get_db), user_id: str = Depends(get_current_us
 @router.get("/recommendations")
 def recommend(limit: int = Query(20, ge=1, le=100), category: Optional[str] = None, min_price: Optional[float] = None, max_price: Optional[float] = None, brand: Optional[str] = None, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     return {"recommendations": recommendations(db, user_id, limit, category, min_price, max_price, brand)}
+
+@router.get("/verdicts")
+def verdicts(
+    gender: Optional[str] = None,
+    limit: int = Query(60, ge=1, le=200),
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    taste = _get_user_taste(user_id)
+    return score_feed(db, user_id, taste, gender=gender, limit=limit)
+
+@router.post("/verdict")
+def verdict(
+    payload: MyntraVerdictRequest,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(check_ingestion_rate),
+):
+    prod_data = {}
+    if payload.product:
+        prod_data = payload.product.model_dump()
+    if payload.product_id:
+        prod_data["product_id"] = payload.product_id
+        if not payload.product:
+            catalog_row = db.query(MyntraProduct).filter(MyntraProduct.product_id == payload.product_id).first()
+            if catalog_row:
+                for col in ("product_url", "brand", "title", "category", "subcategory", "gender", "price", "currency", "image_url", "colour", "pattern", "fit", "material", "occasion"):
+                    val = getattr(catalog_row, col, None)
+                    if val is not None:
+                        prod_data[col] = val
+
+    taste = _get_user_taste(user_id)
+    return score_single(db, user_id, taste, prod_data)
 
 @router.get("/assistant/recommendations")
 def assistant_recommendations(limit: int = Query(3, ge=1, le=20), category: Optional[str] = None, max_price: Optional[float] = Query(None, ge=0), brand: Optional[str] = None, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):

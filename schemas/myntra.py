@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
 
 class MyntraEventType(str, Enum):
@@ -106,3 +106,34 @@ class MyntraFeedbackPayload(BaseModel):
     feedback: Literal["like", "dislike", "not_interested", "clicked", "purchased"]
 
     model_config = ConfigDict(extra="forbid")
+
+
+class MyntraVerdictProductData(BaseModel):
+    brand: Optional[str] = Field(default=None, max_length=255)
+    title: Optional[str] = Field(default=None, max_length=1000)
+    category: Optional[str] = Field(default=None, max_length=255)
+    subcategory: Optional[str] = Field(default=None, max_length=255)
+    gender: Optional[str] = Field(default=None, max_length=64)
+    price: Optional[float] = Field(default=None, ge=0)
+    colour: Optional[str] = Field(default=None, max_length=128)
+    pattern: Optional[str] = Field(default=None, max_length=255)
+    fit: Optional[str] = Field(default=None, max_length=128)
+    material: Optional[str] = Field(default=None, max_length=255)
+    occasion: Optional[str] = Field(default=None, max_length=255)
+    image_url: Optional[str] = None
+    product_url: Optional[str] = None
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class MyntraVerdictRequest(BaseModel):
+    product_id: Optional[str] = Field(default=None, max_length=255)
+    product: Optional[MyntraVerdictProductData] = None
+
+    model_config = ConfigDict(extra="ignore")
+
+    @model_validator(mode="after")
+    def validate_has_id_or_product(self) -> MyntraVerdictRequest:
+        if not self.product_id and not self.product:
+            raise ValueError("Either product_id or product must be provided")
+        return self
