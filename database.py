@@ -122,6 +122,17 @@ class UserLike(Base):  # type: ignore[valid-type]
         }
 
 
+class RecommendationFeedback(Base):
+    """Per-user recommendation impressions and explicit responses."""
+    __tablename__ = "recommendation_feedback"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, nullable=False, index=True)
+    domain = Column(String, nullable=False, index=True)
+    item_id = Column(String, nullable=False, index=True)
+    action = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
+
+
 class AniListUser(Base):  # type: ignore[valid-type]
     """ORM model for local-dev SQLite AniList user-token storage."""
 
@@ -315,6 +326,20 @@ def init_db():
     print(f"[database] Running Base.metadata.create_all() for {len(registered_tables)} registered models: {registered_tables}")
     try:
         Base.metadata.create_all(bind=_engine)
+        # Explicit, idempotent additive migration for existing SQLite/Postgres DBs.
+        with _engine.begin() as conn:
+            conn.execute(text("""CREATE TABLE IF NOT EXISTS recommendation_feedback (
+                id INTEGER PRIMARY KEY,
+                user_id VARCHAR NOT NULL,
+                domain VARCHAR NOT NULL,
+                item_id VARCHAR NOT NULL,
+                action VARCHAR NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )"""))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_recommendation_feedback_user_id ON recommendation_feedback (user_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_recommendation_feedback_domain ON recommendation_feedback (domain)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_recommendation_feedback_item_id ON recommendation_feedback (item_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_recommendation_feedback_created_at ON recommendation_feedback (created_at)"))
     except Exception as err:
         print(f"[database] ERROR executing Base.metadata.create_all(): {err}")
         raise err

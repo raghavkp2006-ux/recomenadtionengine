@@ -133,12 +133,14 @@ export function SignalCard({
   category,
   meta,
   onNavigate,
+  onFeedback,
 }: {
   item: Recommendation
   index: number
   category: Category
   meta: typeof DOMAIN[Category]
   onNavigate: (page: PageId) => void
+  onFeedback?: (itemId: string, action: "like" | "dislike" | "skip") => void
 }) {
   const handleClick = () => {
     if (category === "anime") onNavigate("anime")
@@ -203,6 +205,14 @@ export function SignalCard({
             {item.reason}
           </p>
         </div>
+
+        {onFeedback && (category === "movie" || category === "music") && (
+          <div className="px-3 pb-3 flex gap-2 relative z-20" onClick={(e) => e.stopPropagation()}>
+            <button className="text-xs rounded border px-2 py-1 hover:bg-emerald-500/10" onClick={() => onFeedback(item.id, "like")}>Like</button>
+            <button className="text-xs rounded border px-2 py-1 hover:bg-red-500/10" onClick={() => onFeedback(item.id, "dislike")}>Dislike</button>
+            <button className="text-xs rounded border px-2 py-1 hover:bg-muted" onClick={() => onFeedback(item.id, "skip")}>Skip</button>
+          </div>
+        )}
 
         {/* Score badge — bottom right */}
         <div className="absolute bottom-3 right-3">

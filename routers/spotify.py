@@ -3,6 +3,7 @@ import time
 import requests
 import base64
 from collections import defaultdict
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Set, Optional
 from fastapi import APIRouter, HTTPException, Query, Response, Depends
 from fastapi.responses import RedirectResponse
@@ -75,6 +76,15 @@ def normalize_genres(raw: List[str]) -> List[str]:
                     result.append(category)
 
     return result
+
+
+def _spotify_get(url: str, user_id: str, *, params: Optional[dict] = None, timeout: int = 8):
+    """Validate/refresh the user's token immediately before each Spotify GET."""
+    token = get_valid_access_token(user_id)
+    response = requests.get(url, headers={"Authorization": f"Bearer {token}"},
+                            params=params, timeout=timeout)
+    response.raise_for_status()
+    return response
 
 
 def compute_genre_profile(artists: List[Dict[str, Any]]) -> Dict[str, float]:
@@ -151,7 +161,7 @@ def score_candidate_tracks(
     return scored
 
 
-def get_artist_genres(artist_id: str, token: str) -> List[str]:
+def get_artist_genres(artist_id: str, token: str, user_id: Optional[str] = None) -> List[str]:
     """
     Fetch genres for a single artist from the Spotify API.
 
@@ -162,10 +172,13 @@ def get_artist_genres(artist_id: str, token: str) -> List[str]:
     headers = {"Authorization": f"Bearer {token}"}
     url = f"https://api.spotify.com/v1/artists/{artist_id}"
     try:
-        response = requests.get(url, headers=headers, timeout=5)
+        response = (_spotify_get(url, user_id, timeout=5) if user_id
+                    else requests.get(url, headers=headers, timeout=5))
         if response.status_code == 200:
             return response.json().get("genres", [])
     except Exception as e:
+        if user_id:
+            raise
         print(f"[spotify] get_artist_genres({artist_id}): {e}")
     return []
 
@@ -175,6 +188,7 @@ def search_candidates(
     exclude_ids: Set[str],
     token: str,
     limit_per_genre: int = 20,
+    user_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Search Spotify for candidate tracks across a list of genres.
@@ -203,7 +217,8 @@ def search_candidates(
                 "limit": limit_per_genre,
             }
             try:
-                response = requests.get(url, headers=headers, params=params, timeout=5)
+                response = (_spotify_get(url, user_id, params=params, timeout=5) if user_id
+                            else requests.get(url, headers=headers, params=params, timeout=5))
                 if response.status_code == 200:
                     items = response.json().get("tracks", {}).get("items", [])
                     if items:
@@ -212,6 +227,8 @@ def search_candidates(
                 else:
                     print(f"[spotify] search_candidates: {response.status_code} for query={q}")
             except Exception as e:
+                if user_id:
+                    raise
                 print(f"[spotify] search_candidates({q}): {e}")
 
         for item in genre_items:
@@ -274,7 +291,7 @@ def score_candidates(
     return score_candidate_tracks(candidates, user_profile, track_genres_map)
 
 
-def fetch_artists_bulk(artist_ids: List[str], token: str) -> List[Dict[str, Any]]:
+def fetch_artists_bulk(artist_ids: List[str], token: str, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
     """Fetch up to 50 artists in a single bulk call from Spotify API."""
     if not artist_ids:
         return []
@@ -283,14 +300,17 @@ def fetch_artists_bulk(artist_ids: List[str], token: str) -> List[Dict[str, Any]
     # Spotify bulk endpoint allows max 50 ids per request
     for i in range(0, len(artist_ids), 50):
         chunk = artist_ids[i : i + 50]
-        url = f"https://api.spotify.com/v1/artists?ids={','.join(chunk)}"
+        url = "https://api.spotify.com/v1/artists"
         try:
-            resp = requests.get(url, headers=headers, timeout=6)
+            resp = (_spotify_get(url, user_id, params={"ids": ",".join(chunk)}, timeout=6) if user_id
+                    else requests.get(url, headers=headers, params={"ids": ",".join(chunk)}, timeout=6))
             if resp.status_code == 200:
                 artists.extend(resp.json().get("artists", []))
             else:
                 print(f"[spotify] fetch_artists_bulk error: status {resp.status_code}")
         except Exception as e:
+            if user_id:
+                raise
             print(f"[spotify] fetch_artists_bulk exception: {e}")
     return [a for a in artists if a]
 
@@ -589,25 +609,45 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
     token = get_valid_access_token(user_id)
     headers = {"Authorization": f"Bearer {token}"}
 
-    # --- 1. Fetch top artists ---
+    # Refresh-if-expired before using the token, then combine short/medium/long
+    # preferences and recent listening so the profile reflects current taste.
     artists = []
-    try:
-        artists_resp = requests.get(
-            "https://api.spotify.com/v1/me/top/artists?limit=50", headers=headers, timeout=6
-        )
-        if artists_resp.status_code == 200:
-            artists = artists_resp.json().get("items", [])
-        else:
-            print(f"[spotify_rec] user_id={user_id}: me/top/artists returned HTTP {artists_resp.status_code}")
-    except Exception as e:
-        print(f"[spotify_rec] user_id={user_id}: me/top/artists error: {e}")
-
     user_profile: Dict[str, float] = {}
-    if artists:
-        for artist in artists:
+    range_weights = [("short_term", 0.5), ("medium_term", 0.3), ("long_term", 0.2)]
+    owned_track_ids: Set[str] = set()
+    for time_range, range_weight in range_weights:
+        artist_resp = _spotify_get("https://api.spotify.com/v1/me/top/artists", user_id,
+                                   params={"limit": 50, "time_range": time_range})
+        range_artists = artist_resp.json().get("items", [])
+        track_resp = _spotify_get("https://api.spotify.com/v1/me/top/tracks", user_id,
+                                  params={"limit": 50, "time_range": time_range})
+        range_tracks = track_resp.json().get("items", [])
+        owned_track_ids.update(t["id"] for t in range_tracks if t.get("id"))
+        track_artist_ids = [a["id"] for track in range_tracks for a in track.get("artists", []) if a.get("id")]
+        track_artists = fetch_artists_bulk(list(dict.fromkeys(track_artist_ids)), token, user_id)
+        for artist in range_artists:
             artist["genres"] = normalize_genres(artist.get("genres", []))
-        user_profile = compute_genre_profile(artists)
-        print(f"[spotify_rec] user_id={user_id}: top artists count={len(artists)}, computed profile={user_profile}")
+        for artist in track_artists:
+            artist["genres"] = normalize_genres(artist.get("genres", []))
+        artists.extend(range_artists)
+        for genre, weight in compute_genre_profile(range_artists + track_artists).items():
+            user_profile[genre] = user_profile.get(genre, 0.0) + weight * range_weight
+
+    recent_resp = _spotify_get("https://api.spotify.com/v1/me/player/recently-played", user_id,
+                               params={"limit": 50})
+    recent_tracks = recent_resp.json().get("items", [])
+    recent_artist_ids = [a["id"] for item in recent_tracks for a in item.get("track", {}).get("artists", []) if a.get("id")]
+    recent_artists = fetch_artists_bulk(list(dict.fromkeys(recent_artist_ids)), token, user_id)
+    for artist in recent_artists:
+        artist["genres"] = normalize_genres(artist.get("genres", []))
+    for genre, weight in compute_genre_profile(recent_artists).items():
+        user_profile[genre] = user_profile.get(genre, 0.0) + weight * 0.2
+    for item in recent_tracks:
+        track = item.get("track", {})
+        if track.get("id"):
+            owned_track_ids.add(track["id"])
+    if not user_profile:
+        print(f"[spotify_rec] user_id={user_id}: Spotify has no genre profile; using synced history")
 
     # Fallback to play history if top/artists was empty or produced no genres
     if not user_profile:
@@ -631,16 +671,8 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
     sorted_genres = sorted(user_profile, key=user_profile.get, reverse=True) if user_profile else []
     top_genres = sorted_genres[:5]
 
-    # --- 3. Build exclusion set from user's own top tracks ---
-    exclude_ids: Set[str] = set()
-    try:
-        top_tracks_resp = requests.get(
-            "https://api.spotify.com/v1/me/top/tracks?limit=50", headers=headers, timeout=6
-        )
-        if top_tracks_resp.status_code == 200:
-            exclude_ids = {t["id"] for t in top_tracks_resp.json().get("items", [])}
-    except Exception as e:
-        print(f"[spotify_rec] user_id={user_id}: top/tracks exclusion error: {e}")
+    # --- 3. Exclude tracks the user already listens to ---
+    exclude_ids: Set[str] = set(owned_track_ids)
 
     # Also exclude tracks from recent play history in DB
     db = SessionLocal()
@@ -678,7 +710,7 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
     # --- 4. Search candidates ---
     raw_candidates = []
     if top_genres:
-        raw_candidates = search_candidates(top_genres, exclude_ids, token)
+        raw_candidates = search_candidates(top_genres, exclude_ids, token, user_id=user_id)
         print(f"[spotify_rec] user_id={user_id}: top_genres={top_genres}, raw_candidates found={len(raw_candidates)}")
 
     # If genre search returned no candidates OR user_profile had no genres (Spotify API lockdown),
@@ -689,12 +721,8 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
         for aname in top_artist_names[:8]:
             search_url = "https://api.spotify.com/v1/search"
             try:
-                s_resp = requests.get(
-                    search_url,
-                    headers=headers,
-                    params={"q": f'artist:"{aname}"', "type": "track", "limit": 6},
-                    timeout=5,
-                )
+                s_resp = _spotify_get(search_url, user_id,
+                                      params={"q": f'artist:"{aname}"', "type": "track", "limit": 6}, timeout=5)
                 if s_resp.status_code == 200:
                     items = s_resp.json().get("tracks", {}).get("items", [])
                     for it in items:
@@ -726,11 +754,8 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
     for i in range(0, len(candidate_ids), CHUNK):
         chunk = candidate_ids[i : i + CHUNK]
         try:
-            resp = requests.get(
-                f"https://api.spotify.com/v1/tracks?ids={','.join(chunk)}",
-                headers=headers,
-                timeout=6,
-            )
+            resp = _spotify_get("https://api.spotify.com/v1/tracks", user_id,
+                                params={"ids": ",".join(chunk)}, timeout=6)
             if resp.status_code == 200:
                 for t in resp.json().get("tracks", []) or []:
                     if t:
@@ -747,9 +772,7 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
             aid = artist_obj.get("id")
             if aid:
                 if aid not in artist_genre_cache:
-                    artist_genre_cache[aid] = normalize_genres(
-                        get_artist_genres(aid, token)
-                    )
+                    artist_genre_cache[aid] = normalize_genres(get_artist_genres(aid, token, user_id))
                 all_genres.extend(artist_genre_cache[aid])
         track_genres_map[tid] = list(set(all_genres))
 
@@ -764,10 +787,27 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
             cand_copy["matched_genres"] = top_genres[:2] if top_genres else ["music"]
             scored.append(cand_copy)
 
+    from database import RecommendationFeedback
+    from services.rerank import rerank
+    db = SessionLocal()
+    try:
+        feedback_rows = db.query(RecommendationFeedback).filter_by(user_id=user_id, domain="music").all()
+        vectors = [set(track_genres_map.get(item["id"], [])) |
+                   {str(name).lower() for name in item.get("artists", [])}
+                   for item in scored]
+        recommendations = rerank(scored, [item.get("score", 0.0) for item in scored], vectors,
+                                 user_id=user_id, feedback=feedback_rows, k=limit)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        db.add_all([RecommendationFeedback(user_id=user_id, domain="music", item_id=str(item["id"]),
+                                            action="shown", created_at=now) for item in recommendations])
+        db.commit()
+    finally:
+        db.close()
+
     print(f"[spotify_rec] user_id={user_id}: total scored recommendations={len(scored)}")
 
     return {
-        "recommendations": scored[:limit],
+        "recommendations": recommendations,
         "genre_profile": {g: round(user_profile[g], 3) for g in sorted_genres[:10]} if user_profile else {"music": 1.0},
     }
 

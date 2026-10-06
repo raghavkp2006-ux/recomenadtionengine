@@ -93,6 +93,8 @@ export const api = {
     unlike: (mal_id: number) => fetchApi("/anime/" + mal_id + "/like", { method: "DELETE" }),
   },
   recommendations: {
+    feedback: (domain: "movie" | "music", item_id: string, action: "like" | "dislike" | "skip") =>
+      fetchApi<{ ok: boolean }>("/feedback", { method: "POST", body: JSON.stringify({ domain, item_id, action }) }),
     getByCategory: async (category: string): Promise<import("./types").Recommendation[]> => {
       if (category === "music") {
         try {

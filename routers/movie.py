@@ -14,7 +14,7 @@ Parameterised paths:
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Depends
 from pydantic import BaseModel
 
 from services.movie_recommender import (
@@ -23,7 +23,12 @@ from services.movie_recommender import (
     movie_data_map,
     movie_ids,
     _resolve_movie_index,
+    tfidf_matrix,
 )
+from database import Movie, RecommendationFeedback, SessionLocal
+from services.auth import get_current_user_id
+from services.rerank import rerank
+from datetime import datetime, timezone
 
 router = APIRouter(prefix="/movie", tags=["movie"])
 
@@ -51,6 +56,7 @@ def search_movies(q: str = Query(..., min_length=1)):
 def get_recommendations(
     request: MovieRecRequest,
     n: int = Query(default=10, ge=1, le=50),
+    user_id: str = Depends(get_current_user_id),
 ):
     """
     Return personalized movie recommendations.
@@ -58,7 +64,25 @@ def get_recommendations(
     - If liked_ids empty/omitted: auto-seed using movies with personal_rating >= 7.0
       weighted by (personal_rating - 5.5).
     """
-    recommendations = get_taste_vector_recommendations(liked_ids=request.liked_ids, n=n)
+    recommendations = get_taste_vector_recommendations(liked_ids=request.liked_ids, n=max(40, n))
+    vectors = [tfidf_matrix[_resolve_movie_index(item["id"])] for item in recommendations]
+    scores = [float(item.get("score", 0.0)) for item in recommendations]
+    db = SessionLocal()
+    try:
+        feedback_rows = db.query(RecommendationFeedback).filter_by(user_id=user_id, domain="movie").all()
+        candidate_ids = [int(item["id"]) for item in recommendations if str(item["id"]).isdigit()]
+        rated = {str(m.tmdb_id): m.personal_rating for m in db.query(Movie).filter(
+            Movie.tmdb_id.in_(candidate_ids)).all()}
+        scores = [score + (float(rated.get(str(item["id"])) or 0.0) / 10.0) * 0.15
+                  for item, score in zip(recommendations, scores)]
+        reranked = rerank(recommendations, scores, vectors, user_id=user_id, feedback=feedback_rows, k=n)
+        now = datetime.now(timezone.utc)
+        db.add_all([RecommendationFeedback(user_id=user_id, domain="movie", item_id=str(item["id"]),
+                                            action="shown", created_at=now) for item in reranked])
+        db.commit()
+        recommendations = reranked
+    finally:
+        db.close()
     return {"recommendations": recommendations}
 
 

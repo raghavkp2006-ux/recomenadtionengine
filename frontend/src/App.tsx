@@ -417,6 +417,10 @@ function MusicRecommendationsPage({ isConnected }: { isConnected: boolean }) {
           category="music"
           meta={DOMAIN.music}
           onNavigate={() => {}}
+          onFeedback={async (id, action) => {
+            await api.recommendations.feedback("music", id, action)
+            setRecommendations(await api.recommendations.getByCategory("music"))
+          }}
         />
       ))}
     </div>
@@ -460,6 +464,10 @@ function MoviesRecommendationsPage() {
           category="movie"
           meta={DOMAIN.movie}
           onNavigate={() => {}}
+          onFeedback={async (id, action) => {
+            await api.recommendations.feedback("movie", id, action)
+            setRecommendations(await api.recommendations.getByCategory("movie"))
+          }}
         />
       ))}
     </div>

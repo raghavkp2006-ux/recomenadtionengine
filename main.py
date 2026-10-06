@@ -14,6 +14,7 @@ from services.auth import get_current_user_id, create_session_cookie
 from services.spotify_scheduler import start_scheduler, stop_scheduler
 from pydantic import BaseModel
 from fastapi import HTTPException
+from routers import feedback
 
 
 @asynccontextmanager
@@ -96,6 +97,7 @@ app.include_router(tourist_spots.router)
 app.include_router(dining.router)
 app.include_router(myntra.router)
 app.include_router(preferences.router)
+app.include_router(feedback.router)
 
 @app.get("/")
 def read_root():
