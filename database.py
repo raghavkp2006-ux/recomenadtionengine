@@ -36,12 +36,19 @@ from models.myntra import MyntraConnection, MyntraEvent, MyntraFeedback, MyntraP
 
 load_dotenv()
 
-_db_url = os.getenv("DATABASE_URL")
+_raw_db_url = os.getenv("DATABASE_URL")
+_db_url = _raw_db_url.strip().strip("'\"").strip() if _raw_db_url else None
+_engine = None
 if _db_url:
     if _db_url.startswith("postgres://"):
         _db_url = _db_url.replace("postgres://", "postgresql://", 1)
-    _engine = create_engine(_db_url, pool_pre_ping=True)
-else:
+    try:
+        _engine = create_engine(_db_url, pool_pre_ping=True)
+    except Exception as e:
+        print(f"[database] Warning: Could not create engine for DATABASE_URL ({e}). Falling back to SQLite.")
+        _engine = None
+
+if _engine is None:
     _DB_PATH = os.getenv(
         "SQLITE_PATH",
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "spotify_tokens.db"),

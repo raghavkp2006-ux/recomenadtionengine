@@ -104,6 +104,10 @@ app.include_router(feedback.router)
 def read_root():
     return {"message": "Welcome to the Recommendation App API! Visit /docs for Swagger UI"}
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
 @app.get("/auth/me")
 def get_me(user_id: str = Depends(get_current_user_id)):
     user = get_user_by_id(user_id)

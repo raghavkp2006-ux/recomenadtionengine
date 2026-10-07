@@ -1,0 +1,53 @@
+# Version control & internal config
+.git
+.gitignore
+.github
+.agents
+.kilo
+.pytest_cache
+
+# Virtual environments & Python cache
+.venv
+venv
+env
+ENV
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.eggs
+*.egg-info
+dist
+build
+
+# Secrets & Environment configs
+.env
+.env.*
+!.env.example
+
+# Databases & local stores
+*.db
+*.sqlite*
+local_polytaste.db
+local_app.db
+spotify_tokens.db
+
+# Frontend and Extension (Frontend has its own build/Dockerfile)
+frontend/
+extension/
+node_modules/
+node-v22.14.0-win-x64/
+node.zip
+
+# Personal & large raw data files (not needed for runtime API inference)
+Spotify Extended Streaming History/
+data/raw/*.csv
+data/eval/
+export (2).geojson
+
+# Logs & scratch
+*.log
+scratch_*.py
+audit.py
+apply_dark_mode.py
+mock_taste_profile.py

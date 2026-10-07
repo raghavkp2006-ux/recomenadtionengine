@@ -284,7 +284,7 @@ class MyntraVerdictRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     @model_validator(mode="after")
-    def validate_has_id_or_product(self) -> MyntraVerdictRequest:
+    def validate_has_id_or_product(self) -> "MyntraVerdictRequest":
         if not self.product_id and not self.product:
             raise ValueError("Either product_id or product must be provided")
         return self

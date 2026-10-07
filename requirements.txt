@@ -2,7 +2,7 @@ fastapi
 uvicorn
 requests
 python-dotenv
-scikit-learn
+scikit-learn==1.9.0
 pandas
 jinja2
 python-multipart
