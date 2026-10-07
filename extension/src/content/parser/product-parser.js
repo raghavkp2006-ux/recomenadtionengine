@@ -63,13 +63,28 @@ export function parseProductWithDiagnostics(document, pageUrl = globalThis.locat
     product.brand = jsonLd?.brand?.name || jsonLd?.brand || firstText(document, selector.brand);
     product.price = number(offers?.price) ?? number(firstText(document, selector.price));
     product.mrp = number(offers?.highPrice) ?? number(firstText(document, selector.mrp));
-    product.rating = number(jsonLd?.aggregateRating?.ratingValue) ?? number(firstText(document, selector.rating));
+    const parsedRating = number(jsonLd?.aggregateRating?.ratingValue) ?? number(firstText(document, selector.rating));
+    product.rating = (parsedRating !== null && parsedRating >= 0 && parsedRating <= 5) ? parsedRating : null;
     product.rating_count = number(jsonLd?.aggregateRating?.ratingCount);
-    product.image_url = (Array.isArray(jsonLd?.image) ? jsonLd.image[0] : jsonLd?.image) || firstImage(document, selector.image);
+    let rawImage = (Array.isArray(jsonLd?.image) ? jsonLd.image[0] : jsonLd?.image) || firstImage(document, selector.image);
+    if (typeof rawImage === "object" && rawImage !== null) rawImage = rawImage.url || rawImage.contentUrl || null;
+    if (typeof rawImage === "string") {
+      rawImage = rawImage.trim();
+      if (rawImage.startsWith("//")) rawImage = "https:" + rawImage;
+      else if (rawImage.startsWith("/")) {
+        try { rawImage = new URL(rawImage, pageUrl).href; } catch { rawImage = null; }
+      } else if (!rawImage.startsWith("http://") && !rawImage.startsWith("https://")) {
+        rawImage = null;
+      }
+    } else { rawImage = null; }
+    product.image_url = rawImage;
     product.colour = firstText(document, selector.colour);
+    if (product.colour && (product.colour.length > 50 || /transparency|opaque|windowcolor|backgroundcolor/i.test(product.colour))) {
+      product.colour = null;
+    }
     product.sizes = [...(document.querySelectorAll?.(selector.sizes.join(",")) || [])].map(text).filter(Boolean);
     product.discount_percent = product.price && product.mrp && product.mrp > product.price
-      ? Math.round(((product.mrp - product.price) / product.mrp) * 10000) / 100 : null;
+      ? Math.min(100, Math.max(0, Math.round(((product.mrp - product.price) / product.mrp) * 10000) / 100)) : null;
     product.captured_at = new Date().toISOString();
     for (const [key, value] of Object.entries(product)) if (value !== null && value !== "" && (!Array.isArray(value) || value.length)) diagnostics.fields[key] = jsonLd ? "structured_data_or_dom" : "dom";
   } catch (error) {

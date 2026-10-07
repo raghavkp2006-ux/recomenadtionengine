@@ -1,0 +1,304 @@
+{
+  "spotify_history": {
+    "files": [
+      {
+        "file": "Streaming_History_Audio_2020.json",
+        "records": 1420,
+        "sha256": "63bff3759deedab6ead05c2e7de8d0e5b6c72823fed3932d55a49faa55e19e2b"
+      },
+      {
+        "file": "Streaming_History_Audio_2021.json",
+        "records": 2072,
+        "sha256": "249daa8d5e8a13250a30a7bd80fdfd6814182130c6cd3e2efc319cab671c23c3"
+      },
+      {
+        "file": "Streaming_History_Audio_2022.json",
+        "records": 3124,
+        "sha256": "eda6e71a2b98d4a743e8f74e3afa287982613e96674b9c4e9e8e689ba1195730"
+      },
+      {
+        "file": "Streaming_History_Audio_2023.json",
+        "records": 7278,
+        "sha256": "cc3a80ba70c779c007585f0fe28e3d69e4af9876e4a3dc867ffd9bc59151cc1c"
+      },
+      {
+        "file": "Streaming_History_Audio_2024.json",
+        "records": 7408,
+        "sha256": "7aaa448c17c84bd84d8aa5761f418674d06e62dd2ccc53cb6981447fccac9a74"
+      },
+      {
+        "file": "Streaming_History_Audio_2025.json",
+        "records": 7065,
+        "sha256": "1b89543c95ed42d5c3ed0422de214680912efdc3054d3090e50757f4cf995ac6"
+      },
+      {
+        "file": "Streaming_History_Audio_2026.json",
+        "records": 40,
+        "sha256": "77a662d41af0cb365f62b6bf1d65d07b97a6006cafd3cca1491251feafda6a5a"
+      }
+    ],
+    "raw_events": 28407,
+    "artist_valid_events": 28336,
+    "track_valid_events": 28336,
+    "unique_artists": 1537,
+    "artists_at_least_5_plays": 495,
+    "unique_track_uris": 3846,
+    "min_timestamp": "2020-06-29T10:27:26Z",
+    "max_timestamp": "2026-04-09T07:58:17Z",
+    "hours_played_artist_valid": 860.8176216666667,
+    "example_fields": [
+      "audiobook_chapter_title",
+      "audiobook_chapter_uri",
+      "audiobook_title",
+      "audiobook_uri",
+      "conn_country",
+      "episode_name",
+      "episode_show_name",
+      "incognito_mode",
+      "ip_addr",
+      "master_metadata_album_album_name",
+      "master_metadata_album_artist_name",
+      "master_metadata_track_name",
+      "ms_played",
+      "offline",
+      "offline_timestamp",
+      "platform",
+      "reason_end",
+      "reason_start",
+      "shuffle",
+      "skipped",
+      "spotify_episode_uri",
+      "spotify_track_uri",
+      "ts"
+    ],
+    "duplicate_track_timestamp_events": 169
+  },
+  "databases": {
+    "local_polytaste.db": {
+      "counts": {
+        "myntra_events": 29,
+        "myntra_products": 510,
+        "myntra_profiles": 0,
+        "myntra_feedback": 0,
+        "myntra_connections": 2,
+        "spotify_users": 2,
+        "users": 4,
+        "user_likes": 0,
+        "anilist_users": 2,
+        "spotify_import_profiles": 0,
+        "tourist_spots": 65,
+        "dining_spots": 872,
+        "movies": 255,
+        "user_spot_feedback": 1,
+        "user_dining_feedback": 0,
+        "spotify_play_events": 154,
+        "recommendation_feedback": 665
+      },
+      "movie_ratings": {
+        "rated": 0,
+        "liked_at_least_7": 0
+      }
+    },
+    "spotify_tokens.db": {
+      "counts": {
+        "spotify_users": 3,
+        "user_likes": 0,
+        "users": 4,
+        "anilist_users": 5,
+        "spotify_import_profiles": 2,
+        "tourist_spots": 65,
+        "user_spot_feedback": 4,
+        "movies": 255,
+        "dining_spots": 872,
+        "user_dining_feedback": 0,
+        "spotify_play_events": 248,
+        "myntra_events": 0,
+        "myntra_products": 0,
+        "myntra_profiles": 0,
+        "myntra_feedback": 0,
+        "myntra_connections": 0
+      },
+      "movie_ratings": {
+        "rated": 251,
+        "liked_at_least_7": 230,
+        "rating_popularity_correlation": 0.897600781311958
+      }
+    }
+  },
+  "catalogs": {
+    "data/tourist_spots_chennai.json": {
+      "type": "list",
+      "count": 65,
+      "keys": null
+    },
+    "data/restaurants_cafes_chennai.json": {
+      "type": "list",
+      "count": 872,
+      "keys": null
+    },
+    "data/raw/top_15000_anime.csv": {
+      "rows": 15000,
+      "fields": [
+        "anime_id",
+        "anime_url",
+        "image_url",
+        "name",
+        "english_name",
+        "japanese_names",
+        "score",
+        "genres",
+        "themes",
+        "demographics",
+        "synopsis",
+        "type",
+        "episodes",
+        "premiered",
+        "producers",
+        "studios",
+        "source",
+        "duration",
+        "rating",
+        "rank",
+        "popularity",
+        "favorites",
+        "scored_by",
+        "members"
+      ],
+      "usable_text_rows": 14979
+    },
+    "data/myntra_seed/myntra_products.csv": {
+      "rows": 15000,
+      "fields": [
+        "uniq_id",
+        "crawl_timestamp",
+        "product_id",
+        "link",
+        "size",
+        "variant_sku",
+        "brand",
+        "care_instructions",
+        "dominant_material",
+        "title",
+        "actual_color",
+        "dominant_color",
+        "product_type",
+        "images",
+        "body",
+        "product_details",
+        "size_fit",
+        "complete_the_look",
+        "type",
+        "variant_price",
+        "variant_compare_at_price",
+        "ideal_for",
+        "is_in_stock",
+        "inventory",
+        "specifications"
+      ]
+    },
+    "data/myntra_seed/myntra_products_catalog.csv": {
+      "rows": 12491,
+      "fields": [
+        "ProductID",
+        "ProductName",
+        "ProductBrand",
+        "Gender",
+        "Price (INR)",
+        "NumImages",
+        "Description",
+        "PrimaryColor"
+      ]
+    },
+    "data/processed/anime_embeddings.pkl": {
+      "records": 14976,
+      "embedding_dim": 32,
+      "fields": [
+        "embedding",
+        "title",
+        "imageUrl",
+        "genres"
+      ],
+      "genre_type": "str"
+    },
+    "data/processed/movie_tfidf_matrix.pkl": {
+      "shape": [
+        255,
+        5000
+      ],
+      "ids": 255,
+      "rated_metadata": 251
+    },
+    "data/eval/anime_dense_cache.pkl": {
+      "shape": [
+        14979,
+        384
+      ]
+    },
+    "data\\models\\track_embeddings.json": {
+      "tracks": 1850,
+      "embedding_dim": 32,
+      "tracks_with_genres": 0
+    }
+  },
+  "saved_metrics": {
+    "anime": {
+      "mse": 0.0015428060432896018,
+      "latent_std": 0.04275723546743393,
+      "precision": 0.7316326530612245,
+      "recall": 0.6783349101229896,
+      "f1": 0.7039764359351989
+    },
+    "movies": {
+      "vocab_size": 5000,
+      "precision": 0.816,
+      "recall": 0.6310904872389791,
+      "f1": 0.7117313563017881
+    },
+    "spotify": {
+      "status": "Limitation",
+      "message": "track_embeddings.json does not store genre tags for any track (only embedding/name/artist) \u2014 genre-overlap evaluation is not obtainable from this artifact, regardless of dataset size."
+    },
+    "tourist_spots": {
+      "n": 4,
+      "users": 4,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "caveat": "Directional only \u2014 sample too small for a reliable confusion matrix (n=4)"
+    },
+    "dining": {
+      "n": 0,
+      "ground_truth": "none",
+      "caveat": "no feedback data exists \u2014 precision/recall not measurable."
+    },
+    "myntra": {
+      "ground_truth": "none \u2014 MyntraFeedback and MyntraEvent both empty",
+      "score_distribution": {
+        "min": null,
+        "median": null,
+        "max": null
+      }
+    },
+    "cross_domain": {
+      "n_users_evaluated": 4,
+      "convergence_distribution": {
+        "min": 20.0,
+        "median": 20.0,
+        "mean": 20.0,
+        "max": 20.0
+      },
+      "caveat": "identical score across all evaluated users \u2014 small n, not yet confirmed as a general pattern"
+    }
+  },
+  "artifacts": {
+    "data/models/anime_model.pth": {
+      "sha256": "95718cbd4e51bd5fa5e005b50001b744d67b141f2698bea7f29f2647fd011033"
+    },
+    "data/models/spotify_model.pth": {
+      "sha256": "dc474040e7a76fd88ef482654a0e01f6a51bf72286d240ea48f31390a9d22ae1"
+    },
+    "data/eval/metrics.json": {
+      "sha256": "49417bf597c3174a364938dd9da25f58465fe9b08fe428f5bae925bd8090f69a"
+    }
+  }
+}

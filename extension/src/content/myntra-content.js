@@ -51,6 +51,7 @@ async function renderRecommendations() {
   } catch { /* a missing backend session must not alter Myntra */ }
 }
 async function inspectPage() {
+  if (!chrome?.runtime?.id) return;
   const settings = await getSettings();
   if (!settings.enabled) { if (settings.debug) console.log("[PolyTaste] disabled, skipping"); return; }
   try {

@@ -1,0 +1,200 @@
+{
+  "date": "2026-10-06",
+  "backend": {
+    "total": 136,
+    "per_file": {
+      "test_anilist_auth": {
+        "passed": 4,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_anilist_taste": {
+        "passed": 9,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_anime_extensions": {
+        "passed": 23,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_anime_recommender": {
+        "passed": 3,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_content_filtering": {
+        "passed": 3,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_convergence": {
+        "passed": 11,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_eval_movies_loo": {
+        "passed": 6,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_import_imdb_ratings": {
+        "passed": 9,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_movie_rotation_local": {
+        "passed": 1,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_myntra_ingestion": {
+        "passed": 7,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_myntra_models": {
+        "passed": 2,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_myntra_rate_limit": {
+        "passed": 1,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_myntra_schemas": {
+        "passed": 4,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_myntra_seed_balance": {
+        "passed": 7,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_myntra_verdict": {
+        "passed": 11,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_preferences": {
+        "passed": 2,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_recommender": {
+        "passed": 4,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_rerank": {
+        "passed": 3,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_taste_profile": {
+        "passed": 17,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "test_tourist_spots": {
+        "passed": 9,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "warnings": 3,
+    "external_network": "blocked; loopback allowed",
+    "database": "copy of local_polytaste.db"
+  },
+  "extension": {
+    "passed": 17,
+    "failed": 0
+  },
+  "frontend": {
+    "typescript": "passed",
+    "vite": "passed",
+    "warning": "main JS chunk exceeds 500 kB"
+  },
+  "model_metrics": {
+    "anime": {
+      "mse": 0.0015428060432896018,
+      "latent_std": 0.04275723919272423,
+      "precision": 0.7316326530612245,
+      "recall": 0.6783349101229896,
+      "f1": 0.7039764359351989
+    },
+    "movies": {
+      "vocab_size": 5000,
+      "precision": 0.816,
+      "recall": 0.6310904872389791,
+      "f1": 0.7117313563017881
+    },
+    "spotify": {
+      "status": "Limitation",
+      "message": "track_embeddings.json does not store genre tags for any track (only embedding/name/artist) \u2014 genre-overlap evaluation is not obtainable from this artifact, regardless of dataset size."
+    },
+    "confusion_matrices": {
+      "anime_cm": {
+        "matrix": [
+          [
+            640,
+            263
+          ],
+          [
+            340,
+            717
+          ]
+        ],
+        "labels": [
+          "Negative",
+          "Positive"
+        ],
+        "title": "Anime AutoEncoder (Top-5 Genre Overlap)"
+      },
+      "movies_cm": {
+        "matrix": [
+          [
+            520,
+            184
+          ],
+          [
+            477,
+            816
+          ]
+        ],
+        "labels": [
+          "Negative",
+          "Positive"
+        ],
+        "title": "Movies TF-IDF (Top-5 Genre Overlap)"
+      }
+    }
+  },
+  "document": {
+    "pages": 19,
+    "renderer": "Microsoft Word export and bundled PDFium rasterization",
+    "layout_review": "All nineteen page PNGs inspected"
+  }
+}

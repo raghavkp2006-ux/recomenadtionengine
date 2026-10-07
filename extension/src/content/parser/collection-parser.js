@@ -15,13 +15,27 @@ function cards(document) {
 function productFromCard(card) {
   const link = card.querySelector?.("a[href]");
   const price = text(card.querySelector?.("[class*='price']"));
+  let imgUrl = card.querySelector?.("img")?.src || null;
+  if (typeof imgUrl === "string") {
+    imgUrl = imgUrl.trim();
+    if (imgUrl.startsWith("//")) imgUrl = "https:" + imgUrl;
+    else if (!imgUrl.startsWith("http://") && !imgUrl.startsWith("https://")) imgUrl = null;
+  } else { imgUrl = null; }
+  let prodUrl = link?.href || null;
+  if (typeof prodUrl === "string") {
+    prodUrl = prodUrl.trim();
+    if (prodUrl.startsWith("//")) prodUrl = "https:" + prodUrl;
+    else if (prodUrl.startsWith("/")) {
+      try { prodUrl = new URL(prodUrl, "https://www.myntra.com").href; } catch { prodUrl = null; }
+    } else if (!prodUrl.startsWith("http://") && !prodUrl.startsWith("https://")) prodUrl = null;
+  } else { prodUrl = null; }
   return {
     platform: "myntra", product_id: card.getAttribute?.("data-product-id") || idFromUrl(link?.href),
-    product_url: link?.href || null, brand: text(card.querySelector?.("[class*='brand']")),
+    product_url: prodUrl, brand: text(card.querySelector?.("[class*='brand']")),
     title: text(card.querySelector?.("[class*='name'], [class*='title']")), category: null, subcategory: null,
     gender: null, price: number(price), mrp: null, discount_percent: null, currency: "INR", rating: null,
     rating_count: null, colour: null, sizes: [], fit: null, material: null, pattern: null, occasion: null,
-    season: null, seller: null, image_url: card.querySelector?.("img")?.src || null, attributes: {},
+    season: null, seller: null, image_url: imgUrl, attributes: {},
     source: "dom_or_structured_page_data", captured_at: new Date().toISOString(),
   };
 }

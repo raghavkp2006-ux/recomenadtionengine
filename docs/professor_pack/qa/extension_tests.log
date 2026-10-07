@@ -1,0 +1,26 @@
+✔ accessible collection parsers return unsupported instead of throwing on empty fixtures (8.8173ms)
+✔ product parser prefers fixture JSON-LD and normalizes price fields (22.2304ms)
+✔ missing page fields are null rather than parser failures (2.6918ms)
+✔ queue retains events until their IDs are acknowledged (4.2511ms)
+✔ listing parser extracts normalized products from an ItemList fixture (11.4796ms)
+✔ search parser uses URL query first then a visible input (2.4162ms)
+[PolyTaste] Verdict request failed: Internal Server Error
+✔ formatBadgeText formats BUY verdict with fit and first reason (1.7696ms)
+✔ formatBadgeText formats CONSIDER verdict with fit and first reason (0.1671ms)
+✔ formatBadgeText formats SKIP verdict with fit and reason (0.0951ms)
+✔ formatBadgeText formats status values for wishlist, cart, and purchase (0.1409ms)
+✔ formatBadgeText prefixes 'Early guess:' when confidence is low (0.142ms)
+✔ formatBadgeText returns empty string for empty or missing verdict (0.1274ms)
+✔ XSS protection: reasons containing HTML/scripts render strictly as textContent (0.6792ms)
+✔ dedupe: repeated calls replace existing badge rather than stacking (0.3278ms)
+✔ 401 path: renders 'Sign in to PolyTaste' pill and sends OPEN_LOGIN on click (1.3889ms)
+✔ non-401 failure: renders nothing and logs debug (1.2549ms)
+✔ disabled extension: renders nothing (0.2973ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 171.6365

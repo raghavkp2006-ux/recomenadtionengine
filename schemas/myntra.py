@@ -61,6 +61,74 @@ class MyntraProductPayload(BaseModel):
     def normalize_currency(cls, value: str) -> str:
         return value.upper()
 
+    @field_validator("image_url", mode="before")
+    @classmethod
+    def clean_image_url(cls, value: Any) -> Optional[str]:
+        if not value:
+            return None
+        if isinstance(value, dict):
+            value = value.get("url") or value.get("contentUrl")
+        if isinstance(value, str):
+            value = value.strip()
+            if not value or value.startswith("data:"):
+                return None
+            if value.startswith("//"):
+                return "https:" + value
+            if not (value.startswith("http://") or value.startswith("https://")):
+                return None
+            return value
+        return None
+
+    @field_validator("product_url", mode="before")
+    @classmethod
+    def clean_product_url(cls, value: Any) -> Optional[str]:
+        if not value:
+            return None
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return None
+            if value.startswith("//"):
+                return "https:" + value
+            if value.startswith("/"):
+                return "https://www.myntra.com" + value
+            if not (value.startswith("http://") or value.startswith("https://")):
+                return None
+            return value
+        return None
+
+    @field_validator("colour", "fit", mode="before")
+    @classmethod
+    def clean_short_str(cls, value: Any) -> Optional[str]:
+        if not value or not isinstance(value, str):
+            return None
+        value = value.strip()
+        return value[:128] if value else None
+
+    @field_validator("gender", mode="before")
+    @classmethod
+    def clean_gender(cls, value: Any) -> Optional[str]:
+        if not value or not isinstance(value, str):
+            return None
+        value = value.strip()
+        return value[:64] if value else None
+
+    @field_validator("pattern", "material", "occasion", "season", "seller", "brand", "category", "subcategory", mode="before")
+    @classmethod
+    def clean_medium_str(cls, value: Any) -> Optional[str]:
+        if not value or not isinstance(value, str):
+            return None
+        value = value.strip()
+        return value[:255] if value else None
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def clean_title(cls, value: Any) -> Optional[str]:
+        if not value or not isinstance(value, str):
+            return None
+        value = value.strip()
+        return value[:1000] if value else None
+
 
 class MyntraEventPayload(BaseModel):
     event_id: UUID
@@ -83,11 +151,62 @@ class MyntraEventPayload(BaseModel):
             raise ValueError("occurred_at must include a timezone")
         return value
 
+    @field_validator("page_url", mode="before")
+    @classmethod
+    def clean_page_url(cls, value: Any) -> Optional[str]:
+        if not value:
+            return None
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return None
+            if value.startswith("//"):
+                return "https:" + value
+            if not (value.startswith("http://") or value.startswith("https://")):
+                return None
+            return value
+        return None
+
 
 class MyntraBatchEventRequest(BaseModel):
     events: List[MyntraEventPayload] = Field(..., min_length=1, max_length=100)
 
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="before")
+    @classmethod
+    def sanitize_raw_batch(cls, data: Any) -> Any:
+        if isinstance(data, dict) and isinstance(data.get("events"), list):
+            for ev in data["events"]:
+                if isinstance(ev, dict) and isinstance(ev.get("product"), dict):
+                    prod = ev["product"]
+                    r = prod.get("rating")
+                    if r is not None:
+                        try:
+                            rf = float(r)
+                            if rf < 0 or rf > 5:
+                                prod["rating"] = None
+                        except (ValueError, TypeError):
+                            prod["rating"] = None
+                    d = prod.get("discount_percent")
+                    if d is not None:
+                        try:
+                            df = float(d)
+                            if df < 0 or df > 100:
+                                prod["discount_percent"] = None
+                        except (ValueError, TypeError):
+                            prod["discount_percent"] = None
+                    string_limits = [
+                        ("colour", 128), ("fit", 128), ("gender", 64),
+                        ("pattern", 255), ("material", 255), ("occasion", 255),
+                        ("season", 255), ("seller", 255), ("brand", 255),
+                        ("category", 255), ("subcategory", 255), ("title", 1000),
+                    ]
+                    for field, max_l in string_limits:
+                        val = prod.get(field)
+                        if isinstance(val, str) and len(val) > max_l:
+                            prod[field] = val[:max_l]
+        return data
 
 
 class MyntraConnectionPayload(BaseModel):
@@ -124,6 +243,38 @@ class MyntraVerdictProductData(BaseModel):
     product_url: Optional[str] = None
 
     model_config = ConfigDict(extra="ignore")
+
+    @field_validator("colour", "fit", mode="before")
+    @classmethod
+    def clean_v_short_str(cls, value: Any) -> Optional[str]:
+        if not value or not isinstance(value, str):
+            return None
+        value = value.strip()
+        return value[:128] if value else None
+
+    @field_validator("gender", mode="before")
+    @classmethod
+    def clean_v_gender(cls, value: Any) -> Optional[str]:
+        if not value or not isinstance(value, str):
+            return None
+        value = value.strip()
+        return value[:64] if value else None
+
+    @field_validator("pattern", "material", "occasion", "brand", "category", "subcategory", mode="before")
+    @classmethod
+    def clean_v_medium_str(cls, value: Any) -> Optional[str]:
+        if not value or not isinstance(value, str):
+            return None
+        value = value.strip()
+        return value[:255] if value else None
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def clean_v_title(cls, value: Any) -> Optional[str]:
+        if not value or not isinstance(value, str):
+            return None
+        value = value.strip()
+        return value[:1000] if value else None
 
 
 class MyntraVerdictRequest(BaseModel):

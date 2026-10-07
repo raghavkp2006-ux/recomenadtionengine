@@ -6,7 +6,7 @@ export const SELECTORS = Object.freeze({
     price: [".pdp-price strong", "[class*='price'] strong", "[class*='price']"],
     mrp: [".pdp-mrp s", "[class*='mrp']"],
     rating: [".index-overallRating", "[class*='rating']"],
-    colour: [".pdp-color", "[class*='color']"],
+    colour: [".pdp-color", ".pdp-color-name", "[class*='pdp-color']", "[class*='pdpColor']", "span[class*='color']:not([class*='vjs'])"],
     sizes: [".size-buttons-size-button", "[class*='size'] button"],
     image: [".image-grid-image img", "img[class*='image']"],
   },

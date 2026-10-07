@@ -14,15 +14,37 @@ export function parseListing(document) {
         const offers = Array.isArray(value.offers) ? value.offers[0] : value.offers;
         const product = emptyProduct();
         product.product_id = value.sku || value.productID || null;
-        product.product_url = value.url || null;
+        let rawUrl = value.url || null;
+        if (typeof rawUrl === "string") {
+          rawUrl = rawUrl.trim();
+          if (rawUrl.startsWith("//")) rawUrl = "https:" + rawUrl;
+          else if (rawUrl.startsWith("/")) {
+            try { rawUrl = new URL(rawUrl, "https://www.myntra.com").href; } catch { rawUrl = null; }
+          } else if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+            rawUrl = null;
+          }
+        } else { rawUrl = null; }
+        product.product_url = rawUrl;
         product.title = value.name || null;
         product.brand = value.brand?.name || value.brand || null;
         product.price = number(offers?.price);
         product.mrp = number(offers?.highPrice);
-        product.image_url = Array.isArray(value.image) ? value.image[0] : value.image || null;
-        product.rating = number(value.aggregateRating?.ratingValue);
+        let rawImg = Array.isArray(value.image) ? value.image[0] : value.image || null;
+        if (typeof rawImg === "object" && rawImg !== null) rawImg = rawImg.url || rawImg.contentUrl || null;
+        if (typeof rawImg === "string") {
+          rawImg = rawImg.trim();
+          if (rawImg.startsWith("//")) rawImg = "https:" + rawImg;
+          else if (rawImg.startsWith("/")) {
+            try { rawImg = new URL(rawImg, "https://www.myntra.com").href; } catch { rawImg = null; }
+          } else if (!rawImg.startsWith("http://") && !rawImg.startsWith("https://")) {
+            rawImg = null;
+          }
+        } else { rawImg = null; }
+        product.image_url = rawImg;
+        const pRating = number(value.aggregateRating?.ratingValue);
+        product.rating = (pRating !== null && pRating >= 0 && pRating <= 5) ? pRating : null;
         product.rating_count = number(value.aggregateRating?.ratingCount);
-        product.discount_percent = product.price && product.mrp && product.mrp > product.price ? Math.round(((product.mrp - product.price) / product.mrp) * 10000) / 100 : null;
+        product.discount_percent = product.price && product.mrp && product.mrp > product.price ? Math.min(100, Math.max(0, Math.round(((product.mrp - product.price) / product.mrp) * 10000) / 100)) : null;
         products.push(product);
       }
     } catch { /* malformed page data is ignored */ }

@@ -66,6 +66,7 @@ async def myntra_http_error(request: Request, exc: HTTPException):
 @app.exception_handler(RequestValidationError)
 async def myntra_validation_error(request: Request, exc: RequestValidationError):
     if request.url.path.startswith("/myntra"):
+        logger.error("myntra_validation_error url=%s errors=%s", request.url, exc.errors())
         return _myntra_error(request, 422, "MYNTRA_EVENT_VALIDATION_ERROR", "Request validation failed", {"errors": exc.errors()})
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
