@@ -18,11 +18,12 @@ def normalize_scores(scores: Sequence[float]) -> np.ndarray:
 
 def rerank(candidates: Sequence[Mapping[str, Any]], scores: Sequence[float], vectors: Sequence[Any],
            *, user_id: str, feedback: Sequence[Any] = (), k: int = 10,
-           temperature: float = 0.15) -> list[dict[str, Any]]:
+           temperature: float = 0.15, controls: Any = None) -> list[dict[str, Any]]:
     """Penalize recent exposures, sample from the top 60, then apply MMR.
 
     Candidate vectors can be dense/sparse numeric arrays or sets of feature tokens.
     Feedback rows need item_id, action, created_at attributes.
+    Optionally applies controls (pinned boost, hidden filtering, novelty-mapped MMR lambda).
     """
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=24)
@@ -72,6 +73,53 @@ def rerank(candidates: Sequence[Mapping[str, Any]], scores: Sequence[float], vec
     positive = [vectors[lookup[x]] for x in liked if x in lookup]
     negative = [vectors[lookup[str(row.item_id)]] for row in feedback
                 if row.action == "dislike" and str(row.item_id) in lookup]
+    # Parse controls parameters if provided
+    pinned_artists: set[str] = set()
+    pinned_genres: set[str] = set()
+    hidden_artists: set[str] = set()
+    hidden_genres: set[str] = set()
+    mmr_lambda = 0.7
+
+    if controls is not None:
+        if hasattr(controls, "get_pinned"):
+            p = controls.get_pinned()
+            pinned_artists = {str(x).lower() for x in p.get("artists", [])}
+            pinned_genres = {str(x).lower() for x in p.get("genres", [])}
+        elif isinstance(controls, dict) and "pinned" in controls:
+            pinned_artists = {str(x).lower() for x in controls["pinned"].get("artists", [])}
+            pinned_genres = {str(x).lower() for x in controls["pinned"].get("genres", [])}
+
+        if hasattr(controls, "get_hidden"):
+            h = controls.get_hidden()
+            hidden_artists = {str(x).lower() for x in h.get("artists", [])}
+            hidden_genres = {str(x).lower() for x in h.get("genres", [])}
+        elif isinstance(controls, dict) and "hidden" in controls:
+            hidden_artists = {str(x).lower() for x in controls["hidden"].get("artists", [])}
+            hidden_genres = {str(x).lower() for x in controls["hidden"].get("genres", [])}
+
+        if hasattr(controls, "get_sliders"):
+            sliders = controls.get_sliders()
+            # novelty 0 -> lambda 0.9 (relevance heavy), novelty 100 -> lambda 0.3 (diversity heavy)
+            novelty = float(sliders.get("novelty", 50))
+            mmr_lambda = max(0.2, min(0.9, 0.9 - (novelty / 100.0) * 0.6))
+        elif isinstance(controls, dict) and "sliders" in controls:
+            novelty = float(controls["sliders"].get("novelty", 50))
+            mmr_lambda = max(0.2, min(0.9, 0.9 - (novelty / 100.0) * 0.6))
+
+    # Apply pinned boost to raw scores before normalization if present
+    mod_scores = list(scores)
+    for i, candidate in enumerate(candidates):
+        cand_artists = [str(a).lower() for a in candidate.get("artists", [])]
+        cand_genres = [str(g).lower() for g in candidate.get("genres", [])]
+        if any(a in pinned_artists for a in cand_artists) or any(g in pinned_genres for g in cand_genres):
+            mod_scores[i] += 0.25
+
+    base = normalize_scores(mod_scores)
+    lookup = {str(c.get("id")): i for i, c in enumerate(candidates)}
+    positive = [vectors[lookup[x]] for x in liked if x in lookup]
+    negative = [vectors[lookup[str(row.item_id)]] for row in feedback
+                if row.action == "dislike" and str(row.item_id) in lookup]
+
     adjusted = base.copy()
     for i, (candidate, vector) in enumerate(zip(candidates, vectors)):
         item_id = str(candidate.get("id"))
@@ -81,7 +129,20 @@ def rerank(candidates: Sequence[Mapping[str, Any]], scores: Sequence[float], vec
         if negative:
             adjusted[i] -= 0.07 * max(cosine(vector, disliked_vector) for disliked_vector in negative)
 
-    pool = [i for i, item in enumerate(candidates) if str(item.get("id")) not in disliked | liked]
+        cand_artists = [str(a).lower() for a in candidate.get("artists", [])]
+        cand_genres = [str(g).lower() for g in candidate.get("genres", [])]
+        if any(a in pinned_artists for a in cand_artists) or any(g in pinned_genres for g in cand_genres):
+            adjusted[i] += 0.25
+
+    # Filter out disliked, liked, and hidden artists/genres
+    def is_hidden(c: Mapping[str, Any]) -> bool:
+        if not hidden_artists and not hidden_genres:
+            return False
+        c_artists = [str(a).lower() for a in c.get("artists", [])]
+        c_genres = [str(g).lower() for g in c.get("genres", [])]
+        return any(a in hidden_artists for a in c_artists) or any(g in hidden_genres for g in c_genres)
+
+    pool = [i for i, item in enumerate(candidates) if str(item.get("id")) not in disliked | liked and not is_hidden(item)]
     pool.sort(key=lambda i: adjusted[i], reverse=True)
     pool = pool[:60]
     if not pool:
@@ -96,10 +157,10 @@ def rerank(candidates: Sequence[Mapping[str, Any]], scores: Sequence[float], vec
     sample_positions = np.argsort(-(logits + gumbel))[:min(k, len(pool))]
     sampled = [pool[int(position)] for position in sample_positions]
 
-    # MMR diversity (lambda 0.7) reorders only the sampled slate.
+    # MMR diversity with novelty-mapped lambda reorders the sampled slate.
     chosen: list[int] = []
     while sampled:
-        best = max(sampled, key=lambda i: 0.7 * adjusted[i] - 0.3 * max(
+        best = max(sampled, key=lambda i: mmr_lambda * adjusted[i] - (1.0 - mmr_lambda) * max(
             (cosine(vectors[i], vectors[j]) for j in chosen), default=0.0))
         sampled.remove(best)
         chosen.append(best)

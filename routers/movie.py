@@ -26,6 +26,7 @@ from services.movie_recommender import (
     tfidf_matrix,
 )
 from database import Movie, RecommendationFeedback, SessionLocal
+from models.profile import TasteControls
 from services.auth import get_current_user_id
 from services.spotify_sync import get_valid_access_token
 from services.taste_profile import get_movie_boost_map
@@ -131,7 +132,8 @@ def get_recommendations(
             Movie.tmdb_id.in_(candidate_ids)).all()}
         scores = [score + (float(rated.get(str(item["id"])) or 0.0) / 10.0) * 0.15
                   for item, score in zip(recommendations, scores)]
-        reranked = rerank(recommendations, scores, vectors, user_id=user_id, feedback=feedback_rows, k=n)
+        controls = db.query(TasteControls).filter(TasteControls.user_id == user_id).first()
+        reranked = rerank(recommendations, scores, vectors, user_id=user_id, feedback=feedback_rows, k=n, controls=controls)
         for item in reranked:
             meta = movie_data_map.get(str(item["id"]), {})
             poster = item.get("poster_url") or item.get("imageUrl") or meta.get("poster_url") or ""
