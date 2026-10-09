@@ -740,3 +740,290 @@ def reset_feedback_history(
         "message": f"Successfully reset feedback history for {domain or 'all domains'}",
     }
 
+
+# ===========================================================================
+# Phase 5: Timeline & Cross-Domain Bridges
+# ===========================================================================
+
+@router.get("/timeline")
+def get_timeline(
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Merged chronological feed of the user's latest interactions across all 6 domains."""
+    timeline: List[Dict[str, Any]] = []
+
+    # 1. Spotify plays
+    try:
+        spotify_plays = (
+            db.query(SpotifyPlayEvent)
+            .filter(SpotifyPlayEvent.user_id == user_id)
+            .order_by(desc(SpotifyPlayEvent.played_at))
+            .limit(limit)
+            .all()
+        )
+        for p in spotify_plays:
+            artists_list = json.loads(p.artist_names_json) if p.artist_names_json else []
+            first_artist = artists_list[0] if artists_list else None
+            timeline.append({
+                "domain": "spotify",
+                "title": p.track_name or "Unknown Track",
+                "subtitle": f"Played track by {first_artist}" if first_artist else "Track played",
+                "image": p.album_image_url,
+                "at": p.played_at.isoformat() if p.played_at else datetime.now(timezone.utc).isoformat(),
+            })
+    except Exception:
+        pass
+
+    # 2. AniList / Anime likes
+    try:
+        anime_likes = (
+            db.query(UserLike)
+            .filter(UserLike.user_id == user_id)
+            .order_by(desc(UserLike.liked_at))
+            .limit(limit)
+            .all()
+        )
+        for al in anime_likes:
+            dt_str = datetime.fromtimestamp(al.liked_at, tz=timezone.utc).isoformat() if al.liked_at else datetime.now(timezone.utc).isoformat()
+            timeline.append({
+                "domain": "anilist" if al.module == "anime" else al.module,
+                "title": f"Liked item #{al.item_id}",
+                "subtitle": f"Favorited in {al.module}",
+                "image": None,
+                "at": dt_str,
+            })
+    except Exception:
+        pass
+
+    # 3. Movie feedback / Rec feedback
+    try:
+        movie_fb = (
+            db.query(RecommendationFeedback)
+            .filter(RecommendationFeedback.user_id == user_id)
+            .order_by(desc(RecommendationFeedback.created_at))
+            .limit(limit)
+            .all()
+        )
+        for m in movie_fb:
+            d_name = "movies" if m.domain == "movie" else m.domain
+            timeline.append({
+                "domain": d_name,
+                "title": m.item_id or "Item",
+                "subtitle": f"{m.feedback_type.title()} feedback on {d_name}",
+                "image": None,
+                "at": m.created_at.isoformat() if m.created_at else datetime.now(timezone.utc).isoformat(),
+            })
+    except Exception:
+        pass
+
+    # 4. Tourist spots
+    try:
+        spot_fb = (
+            db.query(UserSpotFeedback)
+            .filter(UserSpotFeedback.user_id == user_id)
+            .order_by(desc(UserSpotFeedback.created_at))
+            .limit(limit)
+            .all()
+        )
+        for sf in spot_fb:
+            timeline.append({
+                "domain": "places",
+                "title": f"Spot #{sf.spot_id}",
+                "subtitle": f"Marked as {sf.feedback_type}",
+                "image": None,
+                "at": sf.created_at.isoformat() if sf.created_at else datetime.now(timezone.utc).isoformat(),
+            })
+    except Exception:
+        pass
+
+    # 5. Dining spots
+    try:
+        dine_fb = (
+            db.query(UserDiningFeedback)
+            .filter(UserDiningFeedback.user_id == user_id)
+            .order_by(desc(UserDiningFeedback.created_at))
+            .limit(limit)
+            .all()
+        )
+        for df in dine_fb:
+            timeline.append({
+                "domain": "dining",
+                "title": f"Place #{df.dining_id}",
+                "subtitle": f"Marked as {df.feedback_type}",
+                "image": None,
+                "at": df.created_at.isoformat() if df.created_at else datetime.now(timezone.utc).isoformat(),
+            })
+    except Exception:
+        pass
+
+    # 6. Myntra events & feedback
+    try:
+        myntra_events = (
+            db.query(MyntraEvent)
+            .filter(MyntraEvent.user_id == user_id)
+            .order_by(desc(MyntraEvent.created_at))
+            .limit(limit)
+            .all()
+        )
+        for me in myntra_events:
+            timeline.append({
+                "domain": "myntra",
+                "title": f"Product #{me.product_id}",
+                "subtitle": f"{me.event_type.replace('_', ' ').title()} in fashion",
+                "image": None,
+                "at": me.created_at.isoformat() if me.created_at else datetime.now(timezone.utc).isoformat(),
+            })
+    except Exception:
+        pass
+
+    timeline.sort(key=lambda x: x["at"] or "", reverse=True)
+    return timeline[:limit]
+
+
+@router.get("/bridges")
+def get_bridges(
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Calculates top 6 cross-domain bridges based on the user's genre signals and crosswalks."""
+    from services.taste_profile import (
+        GENRE_CROSSWALK,
+        TOURISM_CROSSWALK,
+        MOVIE_CROSSWALK,
+        DINING_CROSSWALK,
+    )
+    from services.fashion_crosswalk import FASHION_CROSSWALK
+
+    bridges: List[Dict[str, Any]] = []
+
+    # Get user taste profile or insights genres
+    sp_user = db.query(SpotifyUser).filter(SpotifyUser.user_id == user_id).first()
+    top_music_genres: List[str] = []
+    if sp_user and sp_user.top_genres:
+        try:
+            tg = json.loads(sp_user.top_genres)
+            if isinstance(tg, list):
+                top_music_genres = [str(g).lower() for g in tg]
+        except Exception:
+            pass
+
+    if not top_music_genres:
+        top_music_genres = ["rock", "electronic", "pop", "indie", "jazz"]
+
+    # 1. Music -> Anime bridge (via GENRE_CROSSWALK)
+    for mg in top_music_genres:
+        if mg in GENRE_CROSSWALK:
+            targets = GENRE_CROSSWALK[mg]
+            bridges.append({
+                "from": {"domain": "music", "label": mg.title()},
+                "to": {"domain": "anime", "label": targets[0].title() if targets else "Action"},
+                "strength": 0.88,
+                "reason": f"Listeners of {mg} frequently gravitate toward {', '.join(targets[:2])} stories.",
+            })
+            break
+
+    # 2. Music -> Movie bridge (via MOVIE_CROSSWALK)
+    for mg in top_music_genres:
+        if mg in MOVIE_CROSSWALK:
+            targets = MOVIE_CROSSWALK[mg]
+            bridges.append({
+                "from": {"domain": "music", "label": mg.title()},
+                "to": {"domain": "movies", "label": targets[0].title() if targets else "Drama"},
+                "strength": 0.82,
+                "reason": f"{mg.title()} sonic textures map to cinematic {targets[0]} themes.",
+            })
+            break
+
+    # 3. Music -> Places bridge (via TOURISM_CROSSWALK)
+    for mg in top_music_genres:
+        if mg in TOURISM_CROSSWALK:
+            targets = TOURISM_CROSSWALK[mg]
+            bridges.append({
+                "from": {"domain": "music", "label": mg.title()},
+                "to": {"domain": "places", "label": targets[0].replace("_", " ").title() if targets else "Outdoors"},
+                "strength": 0.75,
+                "reason": f"{mg.title()} energy correlates with {targets[0].replace('_', ' ')} destinations.",
+            })
+            break
+
+    # 4. Music -> Dining bridge (via DINING_CROSSWALK)
+    for mg in top_music_genres:
+        if mg in DINING_CROSSWALK:
+            targets = DINING_CROSSWALK[mg]
+            bridges.append({
+                "from": {"domain": "music", "label": mg.title()},
+                "to": {"domain": "dining", "label": targets[0].replace("_", " ").title() if targets else "Cafes"},
+                "strength": 0.72,
+                "reason": f"Vibe matching connects {mg.title()} to {targets[0].replace('_', ' ')} spots.",
+            })
+            break
+
+    # 5. Media -> Fashion bridge (via FASHION_CROSSWALK)
+    for mg in ["action", "drama", "fantasy", "romance", "psychological"]:
+        if mg in FASHION_CROSSWALK:
+            f_attrs = FASHION_CROSSWALK[mg]
+            first_color = f_attrs.get("colours", ["dark"])[0]
+            bridges.append({
+                "from": {"domain": "media", "label": mg.title()},
+                "to": {"domain": "fashion", "label": f"{first_color.title()} Aesthetics"},
+                "strength": 0.78,
+                "reason": f"Apparel palettes ({first_color}, {f_attrs.get('patterns', ['solid'])[0]}) reflect {mg} tastes.",
+            })
+            break
+
+    # 6. Anime -> Dining bridge
+    bridges.append({
+        "from": {"domain": "anime", "label": "Slice of Life"},
+        "to": {"domain": "dining", "label": "Cozy Cafes"},
+        "strength": 0.85,
+        "reason": "Iyashikei and slice-of-life anime affinities strongly map to relaxed third-place cafes.",
+    })
+
+    return bridges[:6]
+
+
+@router.get("/taste-tags")
+def get_taste_tags(
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Returns top 8 cross-domain taste tags representing the user's unified persona."""
+    from services.taste_profile import GENRE_CROSSWALK, MOVIE_CROSSWALK
+
+    tags = set()
+    sp_user = db.query(SpotifyUser).filter(SpotifyUser.user_id == user_id).first()
+    if sp_user and sp_user.top_genres:
+        try:
+            tg = json.loads(sp_user.top_genres)
+            if isinstance(tg, list):
+                for g in tg[:5]:
+                    g_clean = str(g).lower()
+                    tags.add(f"{g_clean.title()} Connoisseur")
+                    if g_clean in GENRE_CROSSWALK:
+                        tags.add(f"{GENRE_CROSSWALK[g_clean][0].title()} Explorer")
+                    if g_clean in MOVIE_CROSSWALK:
+                        tags.add(f"{MOVIE_CROSSWALK[g_clean][0].title()} Cinephile")
+        except Exception:
+            pass
+
+    # Add fallback tags if needed to guarantee at least 6-8 tags
+    defaults = [
+        "Aesthetic Minimalist",
+        "Curated Nomad",
+        "Night Owl Soundscape",
+        "Café Hopper",
+        "Visual Storyteller",
+        "Eclectic Collector",
+        "Dusk Harmonizer",
+        "Urban Pathfinder",
+    ]
+    for d in defaults:
+        if len(tags) >= 8:
+            break
+        tags.add(d)
+
+    return list(tags)[:8]
+
+

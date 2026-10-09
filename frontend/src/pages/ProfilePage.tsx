@@ -8,11 +8,14 @@ import {
   Database,
   RefreshCw,
 } from "lucide-react";
-import { profileApi, type ProfileOverview, type ConnectionItem } from "../api/profile";
+import { profileApi, type ProfileOverview, type ConnectionItem, type TimelineItem, type TasteBridge } from "../api/profile";
 import { ProfileHeader } from "../components/profile/ProfileHeader";
 import { ConnectionsGrid } from "../components/profile/ConnectionsGrid";
 import { InsightsTab } from "../components/profile/InsightsTab";
 import { ControlsTab } from "../components/profile/ControlsTab";
+import { TimelineFeed } from "../components/profile/TimelineFeed";
+import { BridgesPanel } from "../components/profile/BridgesPanel";
+import { TasteTags } from "../components/profile/TasteTags";
 import { Card } from "../components/interchange/Card";
 
 export type ProfileTab =
@@ -47,6 +50,12 @@ export function ProfilePage() {
   const [errorOverview, setErrorOverview] = useState<string | null>(null);
   const [errorConnections, setErrorConnections] = useState<string | null>(null);
 
+  // Phase 5 States
+  const [timeline, setTimeline] = useState<TimelineItem[]>([]);
+  const [bridges, setBridges] = useState<TasteBridge[]>([]);
+  const [tasteTags, setTasteTags] = useState<string[]>([]);
+  const [loadingPhase5, setLoadingPhase5] = useState(true);
+
   const fetchOverviewData = async () => {
     setLoadingOverview(true);
     setErrorOverview(null);
@@ -73,9 +82,28 @@ export function ProfilePage() {
     }
   };
 
+  const fetchPhase5Data = async () => {
+    setLoadingPhase5(true);
+    try {
+      const [tl, br, tg] = await Promise.allSettled([
+        profileApi.getTimeline(30),
+        profileApi.getBridges(),
+        profileApi.getTasteTags(),
+      ]);
+      if (tl.status === "fulfilled") setTimeline(tl.value);
+      if (br.status === "fulfilled") setBridges(br.value);
+      if (tg.status === "fulfilled") setTasteTags(tg.value);
+    } catch {
+      // non-fatal
+    } finally {
+      setLoadingPhase5(false);
+    }
+  };
+
   const reloadAll = () => {
     fetchOverviewData();
     fetchConnectionsData();
+    fetchPhase5Data();
   };
 
   useEffect(() => {
@@ -127,12 +155,19 @@ export function ProfilePage() {
       <div className="pt-2">
         {activeTab === "overview" && (
           <div className="space-y-6">
-            <ConnectionsGrid
-              connections={connections}
-              loading={loadingConnections}
-              error={errorConnections}
-              onRefresh={fetchConnectionsData}
-            />
+            <TasteTags tags={tasteTags} loading={loadingPhase5} />
+
+            <BridgesPanel bridges={bridges} loading={loadingPhase5} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              <ConnectionsGrid
+                connections={connections}
+                loading={loadingConnections}
+                error={errorConnections}
+                onRefresh={fetchConnectionsData}
+              />
+              <TimelineFeed timeline={timeline} loading={loadingPhase5} />
+            </div>
           </div>
         )}
 
