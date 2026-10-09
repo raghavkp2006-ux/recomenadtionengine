@@ -17,6 +17,8 @@ import { ThemeProvider, useTheme } from "./components/ui/ThemeProvider"
 import { ThemeToggleButton } from "./components/ui/ThemeToggleButton"
 import { TouristSpotsPage } from "./pages/TouristSpotsPage"
 import { MyntraPage } from "./pages/MyntraPage"
+import { ProfilePage } from "./pages/ProfilePage"
+import { PublicProfilePage } from "./pages/PublicProfilePage"
 import { SignalCard, DOMAIN } from "./components/dashboard/RecommendationRow"
 import type { PageId, Recommendation } from "./types"
 
@@ -99,6 +101,15 @@ export default function App() {
         .finally(() => setLoading(false))
     }
   }, [])
+
+  if (window.location.pathname.startsWith("/u/")) {
+    return (
+      <ThemeProvider>
+        <AmbientBackground />
+        <PublicProfilePage />
+      </ThemeProvider>
+    )
+  }
 
   return (
     <ThemeProvider>
@@ -253,7 +264,7 @@ function DashboardLayout({
         )}
         {currentPage === "profile" && (
           <PageWrapper title="Taste Profile">
-            <TasteProfileModule />
+            <ProfilePage />
           </PageWrapper>
         )}
         {currentPage === "settings" && (
