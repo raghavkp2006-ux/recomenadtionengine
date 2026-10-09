@@ -17,7 +17,7 @@ import { TimelineFeed } from "../components/profile/TimelineFeed";
 import { BridgesPanel } from "../components/profile/BridgesPanel";
 import { TasteTags } from "../components/profile/TasteTags";
 import { ShareTab } from "../components/profile/ShareTab";
-import { Card } from "../components/interchange/Card";
+import { DataTab } from "../components/profile/DataTab";
 
 export type ProfileTab =
   | "overview"
@@ -187,17 +187,7 @@ export function ProfilePage() {
 
         {activeTab === "share" && <ShareTab />}
 
-        {activeTab === "data" && (
-          <Card className="p-12 text-center">
-            <Database className="w-8 h-8 text-amber-500 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-              Data Management & Export
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-md mx-auto mt-1">
-              Export your profile signals, create Spotify playlists, view sync logs, or manage data.
-            </p>
-          </Card>
-        )}
+        {activeTab === "data" && <DataTab />}
       </div>
     </div>
   );

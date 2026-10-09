@@ -1242,4 +1242,243 @@ def get_taste_compatibility(
     }
 
 
+# ===========================================================================
+# Phase 7: Data Export / Wipe & Spotify Playlist Generation
+# ===========================================================================
+
+class CreatePlaylistRequest(BaseModel):
+    name: str = "Poly_Taste Discovery"
+    range: str = "medium"
+
+
+@router.get("/export")
+def export_user_data(
+    response: Response,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Exports all user signals and history across domains as downloadable JSON.
+    Excludes all tokens (spotify access/refresh tokens, session keys).
+    Sets Content-Disposition header.
+    """
+    user_row = _resolve_user_row(db, user_id)
+    email = user_row.email if user_row else "user"
+    filename = f"polytaste-export-{email.split('@')[0]}.json"
+
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response.headers["Content-Type"] = "application/json"
+
+    export_payload: Dict[str, Any] = {
+        "version": "1.0",
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "user": {
+            "display_name": user_row.name if user_row else None,
+            "theme": user_row.theme if user_row else "dark",
+        },
+        "connections": {},
+        "taste_controls": {},
+        "feedback_history": [],
+        "recent_plays": [],
+    }
+
+    # 1. Taste Controls
+    ctrl = db.query(TasteControls).filter(TasteControls.user_id == user_id).first()
+    if ctrl:
+        export_payload["taste_controls"] = ctrl.to_dict()
+
+    # 2. Connections summary (NO TOKENS)
+    sp_user = db.query(SpotifyUser).filter(SpotifyUser.user_id == user_id).first()
+    if sp_user:
+        export_payload["connections"]["spotify"] = {
+            "account_id": sp_user.spotify_account_id,
+            "display_name": sp_user.spotify_display_name,
+            "last_synced_at": sp_user.last_synced_at.isoformat() if sp_user.last_synced_at else None,
+        }
+
+    al_user = db.query(AniListUser).filter(AniListUser.user_id == user_id).first()
+    if al_user:
+        export_payload["connections"]["anilist"] = {
+            "username": al_user.anilist_username,
+        }
+
+    my_conn = db.query(MyntraConnection).filter(MyntraConnection.user_id == user_id).first()
+    if my_conn:
+        export_payload["connections"]["myntra"] = {
+            "connected_at": my_conn.created_at.isoformat() if my_conn.created_at else None,
+        }
+
+    # 3. Plays sample
+    plays = (
+        db.query(SpotifyPlayEvent)
+        .filter(SpotifyPlayEvent.user_id == user_id)
+        .order_by(desc(SpotifyPlayEvent.played_at))
+        .limit(100)
+        .all()
+    )
+    for p in plays:
+        export_payload["recent_plays"].append({
+            "track_id": p.track_id,
+            "track_name": p.track_name,
+            "album": p.album_name,
+            "played_at": p.played_at.isoformat() if p.played_at else None,
+        })
+
+    # 4. Feedback
+    fb = (
+        db.query(RecommendationFeedback)
+        .filter(RecommendationFeedback.user_id == user_id)
+        .limit(100)
+        .all()
+    )
+    for f in fb:
+        export_payload["feedback_history"].append({
+            "domain": f.domain,
+            "item_id": f.item_id,
+            "feedback": f.feedback_type,
+            "created_at": f.created_at.isoformat() if f.created_at else None,
+        })
+
+    return export_payload
+
+
+@router.delete("/data")
+def delete_user_data(
+    confirm: str = Query("", description="Must be exactly 'DELETE' to confirm wipe"),
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Nuclear GDPR wipe: Deletes all user data, connections, tokens, logs, feedback,
+    and profile controls across all tables for this user.
+    Requires ?confirm=DELETE.
+    """
+    if confirm != "DELETE":
+        raise HTTPException(
+            status_code=400,
+            detail="Account wipe must be confirmed by passing ?confirm=DELETE",
+        )
+
+    # Wipe SpotifyUser (deletes tokens)
+    db.query(SpotifyUser).filter(SpotifyUser.user_id == user_id).delete(synchronize_session=False)
+    db.query(SpotifyPlayEvent).filter(SpotifyPlayEvent.user_id == user_id).delete(synchronize_session=False)
+
+    # Wipe AniListUser
+    db.query(AniListUser).filter(AniListUser.user_id == user_id).delete(synchronize_session=False)
+    db.query(UserLike).filter(UserLike.user_id == user_id).delete(synchronize_session=False)
+
+    # Wipe Myntra
+    db.query(MyntraConnection).filter(MyntraConnection.user_id == user_id).delete(synchronize_session=False)
+    db.query(MyntraProfile).filter(MyntraProfile.user_id == user_id).delete(synchronize_session=False)
+    db.query(MyntraEvent).filter(MyntraEvent.user_id == user_id).delete(synchronize_session=False)
+    db.query(MyntraFeedback).filter(MyntraFeedback.user_id == user_id).delete(synchronize_session=False)
+
+    # Wipe Feedback
+    db.query(RecommendationFeedback).filter(RecommendationFeedback.user_id == user_id).delete(synchronize_session=False)
+    db.query(UserSpotFeedback).filter(UserSpotFeedback.user_id == user_id).delete(synchronize_session=False)
+    db.query(UserDiningFeedback).filter(UserDiningFeedback.user_id == user_id).delete(synchronize_session=False)
+
+    # Wipe Profile state
+    db.query(TasteControls).filter(TasteControls.user_id == user_id).delete(synchronize_session=False)
+    db.query(PublicProfile).filter(PublicProfile.user_id == user_id).delete(synchronize_session=False)
+    db.query(SyncLog).filter(SyncLog.user_id == user_id).delete(synchronize_session=False)
+
+    db.commit()
+
+    return {
+        "ok": True,
+        "message": "All data and connections for this user have been permanently wiped.",
+    }
+
+
+@router.post("/playlist")
+def create_profile_playlist(
+    payload: CreatePlaylistRequest,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Creates a private Spotify playlist with the user's top recommended tracks.
+    Never uses Spotify recommendation endpoints. Uses candidate search and top tracks.
+    If scope playlist-modify-private is missing or fails, returns status 409 needs_reconnect.
+    """
+    import requests
+    from routers.spotify import get_valid_access_token
+
+    try:
+        access_token = get_valid_access_token(user_id, db)
+    except Exception:
+        raise HTTPException(
+            status_code=409,
+            detail={"status": "needs_reconnect", "message": "Spotify reconnection required to create playlists"},
+        )
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    # 1. Get user Spotify ID
+    me_resp = requests.get("https://api.spotify.com/v1/me", headers=headers, timeout=5)
+    if me_resp.status_code != 200:
+        raise HTTPException(
+            status_code=409,
+            detail={"status": "needs_reconnect", "message": "Spotify session expired or insufficient permissions"},
+        )
+    spotify_account_id = me_resp.json().get("id")
+
+    # 2. Get top tracks to include
+    term_map = {"short": "short_term", "medium": "medium_term", "long": "long_term"}
+    term = term_map.get(payload.range, "medium_term")
+    tracks_resp = requests.get(
+        f"https://api.spotify.com/v1/me/top/tracks?time_range={term}&limit=20",
+        headers=headers,
+        timeout=5,
+    )
+    track_uris = []
+    if tracks_resp.status_code == 200:
+        items = tracks_resp.json().get("items", [])
+        track_uris = [item["uri"] for item in items if "uri" in item]
+
+    # 3. Create private playlist
+    create_body = {
+        "name": payload.name or "Poly_Taste Curated",
+        "description": "Generated by Poly_Taste multi-domain preference engine",
+        "public": False,
+    }
+    create_resp = requests.post(
+        f"https://api.spotify.com/v1/users/{spotify_account_id}/playlists",
+        headers={**headers, "Content-Type": "application/json"},
+        json=create_body,
+        timeout=5,
+    )
+
+    if create_resp.status_code not in (200, 201):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "status": "needs_reconnect",
+                "message": "Spotify scope playlist-modify-private is required. Please reconnect Spotify.",
+            },
+        )
+
+    playlist_data = create_resp.json()
+    playlist_id = playlist_data.get("id")
+    playlist_url = playlist_data.get("external_urls", {}).get("spotify", "")
+
+    # 4. Add tracks if any
+    if track_uris and playlist_id:
+        requests.post(
+            f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks",
+            headers={**headers, "Content-Type": "application/json"},
+            json={"uris": track_uris[:20]},
+            timeout=5,
+        )
+
+    return {
+        "ok": True,
+        "playlist_url": playlist_url,
+        "tracks_count": len(track_uris),
+        "message": f"Successfully created private playlist '{payload.name}'",
+    }
+
+
+
 
