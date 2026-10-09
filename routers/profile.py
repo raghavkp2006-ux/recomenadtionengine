@@ -6,6 +6,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
@@ -526,3 +527,216 @@ def disconnect_domain(
         "domain": domain,
         "message": f"Successfully disconnected {domain} and cleared associated signals",
     }
+
+
+# ---------------------------------------------------------------------------
+# PHASE 4: CONTROLS & FEEDBACK HISTORY
+# ---------------------------------------------------------------------------
+
+class DomainWeightsModel(BaseModel):
+    music: int = Field(ge=0, le=100)
+    anime: int = Field(ge=0, le=100)
+    movies: int = Field(ge=0, le=100)
+    fashion: int = Field(ge=0, le=100)
+
+
+class SlidersModel(BaseModel):
+    energy: int = Field(50, ge=0, le=100)
+    obscurity: int = Field(50, ge=0, le=100)
+    novelty: int = Field(50, ge=0, le=100)
+
+
+class PinnedHiddenModel(BaseModel):
+    artists: List[str] = Field(default_factory=list)
+    genres: List[str] = Field(default_factory=list)
+
+
+class UpdateTasteControlsPayload(BaseModel):
+    domain_weights: Optional[DomainWeightsModel] = None
+    sliders: Optional[SlidersModel] = None
+    pinned: Optional[PinnedHiddenModel] = None
+    hidden: Optional[PinnedHiddenModel] = None
+
+
+@router.get("/controls")
+def get_taste_controls(
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Read stored taste controls for user, creating defaults if not yet present."""
+    from models.profile import TasteControls
+    row = db.query(TasteControls).filter(TasteControls.user_id == user_id).first()
+    if not row:
+        row = TasteControls(user_id=user_id)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return row.to_dict()
+
+
+@router.put("/controls")
+def update_taste_controls(
+    payload: UpdateTasteControlsPayload,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Update taste controls.
+    Validation:
+      - domain_weights must be ints 0-100 summing to 100
+      - sliders 0-100
+      - pinned/hidden lists capped at 50 items each
+    """
+    from models.profile import TasteControls
+
+    # Validate domain_weights
+    if payload.domain_weights is not None:
+        dw = payload.domain_weights
+        total_w = dw.music + dw.anime + dw.movies + dw.fashion
+        if total_w != 100:
+            raise HTTPException(
+                status_code=400,
+                detail=f"domain_weights must sum to 100 (got {total_w})",
+            )
+
+    # Validate pinned
+    if payload.pinned is not None:
+        if len(payload.pinned.artists) > 50 or len(payload.pinned.genres) > 50:
+            raise HTTPException(
+                status_code=400,
+                detail="pinned artists and genres are capped at 50 items each",
+            )
+
+    # Validate hidden
+    if payload.hidden is not None:
+        if len(payload.hidden.artists) > 50 or len(payload.hidden.genres) > 50:
+            raise HTTPException(
+                status_code=400,
+                detail="hidden artists and genres are capped at 50 items each",
+            )
+
+    row = db.query(TasteControls).filter(TasteControls.user_id == user_id).first()
+    if not row:
+        row = TasteControls(user_id=user_id)
+        db.add(row)
+
+    if payload.domain_weights is not None:
+        row.domain_weights_json = json.dumps(payload.domain_weights.dict())
+    if payload.sliders is not None:
+        row.sliders_json = json.dumps(payload.sliders.dict())
+    if payload.pinned is not None:
+        row.pinned_json = json.dumps(payload.pinned.dict())
+    if payload.hidden is not None:
+        row.hidden_json = json.dumps(payload.hidden.dict())
+
+    row.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(row)
+    return row.to_dict()
+
+
+@router.get("/feedback-history")
+def get_feedback_history(
+    domain: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Returns feedback history rows, newest first, with title and domain."""
+    items: List[Dict[str, Any]] = []
+
+    # 1. RecommendationFeedback (movie, music)
+    q_rf = db.query(RecommendationFeedback).filter(RecommendationFeedback.user_id == user_id)
+    if domain:
+        q_rf = q_rf.filter(RecommendationFeedback.domain == domain)
+    for row in q_rf.order_by(desc(RecommendationFeedback.created_at)).limit(limit + offset).all():
+        items.append({
+            "id": row.id,
+            "domain": row.domain,
+            "item_id": row.item_id,
+            "title": f"{row.domain.capitalize()} #{row.item_id}",
+            "action": row.action,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        })
+
+    # 2. Tourist spot feedback
+    if not domain or domain in ("places", "spots", "tourist"):
+        for row in db.query(UserSpotFeedback).filter(UserSpotFeedback.user_id == user_id).order_by(desc(UserSpotFeedback.created_at)).limit(limit + offset).all():
+            items.append({
+                "id": row.id,
+                "domain": "places",
+                "item_id": row.place_id,
+                "title": f"Spot #{row.place_id}",
+                "action": f"Rated {row.rating}★",
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            })
+
+    # 3. Dining feedback
+    if not domain or domain in ("dining", "cafes", "food"):
+        for row in db.query(UserDiningFeedback).filter(UserDiningFeedback.user_id == user_id).order_by(desc(UserDiningFeedback.created_at)).limit(limit + offset).all():
+            items.append({
+                "id": row.id,
+                "domain": "dining",
+                "item_id": row.place_id,
+                "title": f"Dining #{row.place_id}",
+                "action": f"Rated {row.rating}★",
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            })
+
+    # 4. Myntra feedback
+    if not domain or domain in ("fashion", "myntra"):
+        for row in db.query(MyntraFeedback).filter(MyntraFeedback.user_id == user_id).order_by(desc(MyntraFeedback.created_at)).limit(limit + offset).all():
+            items.append({
+                "id": row.id,
+                "domain": "fashion",
+                "item_id": row.product_id,
+                "title": f"Product #{row.product_id}",
+                "action": row.feedback,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            })
+
+    # Sort merged newest first
+    items.sort(key=lambda x: x["created_at"] or "", reverse=True)
+    return items[offset : offset + limit]
+
+
+@router.delete("/feedback-history")
+def reset_feedback_history(
+    domain: Optional[str] = Query(None),
+    confirm: bool = Query(False, description="Must be true to confirm reset"),
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Resets feedback for one domain, or all domains when omitted. Requires ?confirm=true."""
+    if not confirm:
+        raise HTTPException(
+            status_code=400,
+            detail="Reset feedback history must be explicitly confirmed via ?confirm=true",
+        )
+
+    deleted_count = 0
+    if not domain or domain in ("movie", "movies", "music"):
+        q = db.query(RecommendationFeedback).filter(RecommendationFeedback.user_id == user_id)
+        if domain:
+            canonical_d = "movie" if domain == "movies" else domain
+            q = q.filter(RecommendationFeedback.domain == canonical_d)
+        deleted_count += q.delete(synchronize_session=False)
+
+    if not domain or domain in ("places", "spots"):
+        deleted_count += db.query(UserSpotFeedback).filter(UserSpotFeedback.user_id == user_id).delete(synchronize_session=False)
+
+    if not domain or domain in ("dining", "cafes"):
+        deleted_count += db.query(UserDiningFeedback).filter(UserDiningFeedback.user_id == user_id).delete(synchronize_session=False)
+
+    if not domain or domain in ("fashion", "myntra"):
+        deleted_count += db.query(MyntraFeedback).filter(MyntraFeedback.user_id == user_id).delete(synchronize_session=False)
+
+    db.commit()
+    return {
+        "ok": True,
+        "domain": domain or "all",
+        "deleted": deleted_count,
+        "message": f"Successfully reset feedback history for {domain or 'all domains'}",
+    }
+

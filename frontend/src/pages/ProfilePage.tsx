@@ -12,6 +12,7 @@ import { profileApi, type ProfileOverview, type ConnectionItem } from "../api/pr
 import { ProfileHeader } from "../components/profile/ProfileHeader";
 import { ConnectionsGrid } from "../components/profile/ConnectionsGrid";
 import { InsightsTab } from "../components/profile/InsightsTab";
+import { ControlsTab } from "../components/profile/ControlsTab";
 import { Card } from "../components/interchange/Card";
 
 export type ProfileTab =
@@ -146,17 +147,7 @@ export function ProfilePage() {
 
         {activeTab === "insights" && <InsightsTab />}
 
-        {activeTab === "controls" && (
-          <Card className="p-12 text-center">
-            <Sliders className="w-8 h-8 text-emerald-500 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-              Taste Controls & History
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-md mx-auto mt-1">
-              Fine-tune cross-domain blending weights, taste sliders, and curate pinned or hidden genres.
-            </p>
-          </Card>
-        )}
+        {activeTab === "controls" && <ControlsTab />}
 
         {activeTab === "share" && (
           <Card className="p-12 text-center">
