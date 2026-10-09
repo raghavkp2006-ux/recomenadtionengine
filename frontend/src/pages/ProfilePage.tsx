@@ -11,6 +11,7 @@ import {
 import { profileApi, type ProfileOverview, type ConnectionItem } from "../api/profile";
 import { ProfileHeader } from "../components/profile/ProfileHeader";
 import { ConnectionsGrid } from "../components/profile/ConnectionsGrid";
+import { InsightsTab } from "../components/profile/InsightsTab";
 import { Card } from "../components/interchange/Card";
 
 export type ProfileTab =
@@ -143,17 +144,7 @@ export function ProfilePage() {
           />
         )}
 
-        {activeTab === "insights" && (
-          <Card className="p-12 text-center">
-            <Sparkles className="w-8 h-8 text-indigo-500 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-              Taste Insights
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-md mx-auto mt-1">
-              Explore your genre radar, era distribution, diversity entropy, and taste evolution.
-            </p>
-          </Card>
-        )}
+        {activeTab === "insights" && <InsightsTab />}
 
         {activeTab === "controls" && (
           <Card className="p-12 text-center">

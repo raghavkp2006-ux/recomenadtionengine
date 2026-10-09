@@ -344,6 +344,27 @@ def get_connections(
     return results
 
 
+@router.get("/insights")
+def get_insights(
+    range: str = Query("medium", pattern="^(short|medium|long)$"),
+    refresh: bool = Query(False),
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Computes taste insights from Spotify top artists/tracks:
+    genres, entropy diversity, mainstream score, decades histogram,
+    discovery rate, taste evolution, and rule-based personality.
+    """
+    from services.profile_insights import compute_profile_insights
+    return compute_profile_insights(
+        user_id=user_id,
+        time_range_key=range,
+        refresh=refresh,
+        db=db,
+    )
+
+
 @router.post("/connections/{domain}/resync")
 def resync_connection(
     domain: str,

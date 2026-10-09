@@ -129,9 +129,35 @@ export interface PublicProfileData {
   updated_at?: string | null;
 }
 
+export interface ProfileInsightsData {
+  status: "ok" | "partial" | "needs_reconnect";
+  range: "short" | "medium" | "long";
+  top_genres: { genre: string; weight: number }[];
+  diversity: number;
+  mainstream_score: number;
+  obscurity_score: number;
+  rarest: {
+    artist: { name: string; popularity: number; image?: string | null } | null;
+    track: { name: string; artist: string; popularity: number; image?: string | null } | null;
+  };
+  decades: { decade: string; count: number }[];
+  discovery_rate: number;
+  evolution: {
+    rising: { genre: string; delta: number }[];
+    fading: { genre: string; delta: number }[];
+  };
+  personality: {
+    label: string;
+    reason: string;
+  };
+  recently_played: { track: string; artist: string; played_at?: string | null }[];
+}
+
 export const profileApi = {
   getOverview: () => fetchApi<ProfileOverview>("/profile/overview"),
   getConnections: () => fetchApi<ConnectionItem[]>("/profile/connections"),
+  getInsights: (range: "short" | "medium" | "long" = "medium", refresh: boolean = false) =>
+    fetchApi<ProfileInsightsData>(`/profile/insights?range=${range}${refresh ? "&refresh=true" : ""}`),
   resyncConnection: (domain: string) =>
     fetchApi<ResyncResponse>(`/profile/connections/${domain}/resync`, { method: "POST" }),
   disconnectConnection: (domain: string) =>
