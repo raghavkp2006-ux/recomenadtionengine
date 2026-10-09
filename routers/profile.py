@@ -2,10 +2,12 @@
 
 from datetime import datetime, timezone
 import json
+import math
 import time
 from typing import Any, Dict, List, Optional
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -26,11 +28,12 @@ from database import (
     UserDiningFeedback,
 )
 from models.myntra import MyntraConnection, MyntraEvent, MyntraFeedback, MyntraProfile
-from models.profile import SyncLog
+from models.profile import SyncLog, TasteControls, PublicProfile, DEFAULT_VISIBILITY
 from services.auth import get_current_user_id
 from services.sync_log import log_sync, get_latest_sync
 
 router = APIRouter(prefix="/profile", tags=["profile"])
+public_router = APIRouter(tags=["public_profile"])
 
 
 def _resolve_user_row(db: Session, user_id: str) -> Optional[User]:
@@ -1025,5 +1028,218 @@ def get_taste_tags(
         tags.add(d)
 
     return list(tags)[:8]
+
+
+# ===========================================================================
+# Phase 6: Public Profile, Sharing, and Taste Compatibility
+# ===========================================================================
+
+class VisibilityToggles(BaseModel):
+    genres: Optional[bool] = None
+    top_artists: Optional[bool] = None
+    stats: Optional[bool] = None
+    connections: Optional[bool] = None
+    personality: Optional[bool] = None
+
+
+class UpdateVisibilityRequest(BaseModel):
+    is_public: Optional[bool] = None
+    visibility: Optional[VisibilityToggles] = None
+
+
+def _get_or_create_public_profile(db: Session, user_id: str) -> PublicProfile:
+    row = db.query(PublicProfile).filter(PublicProfile.user_id == user_id).first()
+    if not row:
+        slug = uuid.uuid4().hex[:10]
+        row = PublicProfile(
+            user_id=user_id,
+            slug=slug,
+            is_public=False,
+            visibility_json=json.dumps(DEFAULT_VISIBILITY),
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    elif not row.slug:
+        row.slug = uuid.uuid4().hex[:10]
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+@router.get("/visibility")
+def get_profile_visibility(
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Fetch current user's public profile status, slug, and privacy visibility toggles."""
+    row = _get_or_create_public_profile(db, user_id)
+    return row.to_dict()
+
+
+@router.put("/visibility")
+def update_profile_visibility(
+    payload: UpdateVisibilityRequest,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Updates is_public toggle and granular visibility settings for the user's public passport."""
+    row = _get_or_create_public_profile(db, user_id)
+
+    if payload.is_public is not None:
+        row.is_public = bool(payload.is_public)
+
+    if payload.visibility is not None:
+        curr_vis = row.get_visibility()
+        vis_dump = payload.visibility.model_dump(exclude_unset=True)
+        for k, v in vis_dump.items():
+            if v is not None:
+                curr_vis[k] = bool(v)
+        row.visibility_json = json.dumps(curr_vis)
+
+    row.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(row)
+    return row.to_dict()
+
+
+@public_router.get("/public/profile/{slug}")
+def get_public_profile(
+    slug: str,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """
+    Public unauthenticated endpoint for public taste passport.
+    Returns 404 if profile is private or not found.
+    Sets Cache-Control: no-store.
+    STRICT PRIVACY: Leaks ONLY toggled fields. NEVER returns user_id, email, google_sub, or tokens.
+    """
+    response.headers["Cache-Control"] = "no-store"
+
+    pub = db.query(PublicProfile).filter(PublicProfile.slug == slug).first()
+    if not pub or not pub.is_public:
+        raise HTTPException(
+            status_code=404,
+            detail="Profile not found or is set to private.",
+        )
+
+    visibility = pub.get_visibility()
+    target_user_id = pub.user_id
+
+    # Resolve safe display name
+    user_row = _resolve_user_row(db, target_user_id)
+    display_name = "Taste Explorer"
+    if user_row and user_row.name:
+        display_name = user_row.name.split()[0]  # First name only for privacy
+
+    # Build safe public payload
+    public_data: Dict[str, Any] = {
+        "slug": pub.slug,
+        "display_name": display_name,
+        "is_public": True,
+        "visibility": visibility,
+        "updated_at": pub.updated_at.isoformat() if pub.updated_at else None,
+    }
+
+    # Fetch insights data if any insights toggles are enabled
+    needs_insights = any([
+        visibility.get("genres"),
+        visibility.get("top_artists"),
+        visibility.get("stats"),
+        visibility.get("personality"),
+    ])
+
+    insights = None
+    if needs_insights:
+        try:
+            from services.profile_insights import compute_profile_insights
+            insights = compute_profile_insights(user_id=target_user_id, time_range_key="medium", refresh=False, db=db)
+        except Exception:
+            pass
+
+    if visibility.get("genres") and insights:
+        public_data["top_genres"] = insights.get("top_genres", [])
+    if visibility.get("top_artists") and insights:
+        # Provide rarest/top artist if safe
+        public_data["rarest"] = insights.get("rarest", {})
+    if visibility.get("stats") and insights:
+        public_data["diversity"] = insights.get("diversity", 0.0)
+        public_data["mainstream_score"] = insights.get("mainstream_score", 0.0)
+        public_data["obscurity_score"] = insights.get("obscurity_score", 0.0)
+        public_data["decades"] = insights.get("decades", [])
+    if visibility.get("personality") and insights:
+        public_data["personality"] = insights.get("personality", {})
+
+    if visibility.get("connections"):
+        # Safe count of active connections
+        active_domains = []
+        if db.query(SpotifyUser).filter(SpotifyUser.user_id == target_user_id).first():
+            active_domains.append("Spotify")
+        if db.query(AniListUser).filter(AniListUser.user_id == target_user_id).first():
+            active_domains.append("AniList")
+        if db.query(MyntraConnection).filter(MyntraConnection.user_id == target_user_id).first():
+            active_domains.append("Myntra")
+        public_data["active_connections"] = active_domains
+
+    return public_data
+
+
+@router.get("/compatibility/{slug}")
+def get_taste_compatibility(
+    slug: str,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Computes taste compatibility (cosine similarity of genre distribution)
+    between the logged-in user and the owner of the public profile slug.
+    """
+    other_pub = db.query(PublicProfile).filter(PublicProfile.slug == slug).first()
+    if not other_pub or not other_pub.is_public:
+        raise HTTPException(
+            status_code=404,
+            detail="Target profile not found or is set to private.",
+        )
+
+    from services.profile_insights import compute_profile_insights
+
+    # 1. Current user genres
+    my_insights = compute_profile_insights(user_id=user_id, time_range_key="medium", refresh=False, db=db)
+    my_genres_map = {g["genre"].lower(): g["weight"] for g in my_insights.get("top_genres", [])}
+
+    # 2. Target user genres
+    other_insights = compute_profile_insights(user_id=other_pub.user_id, time_range_key="medium", refresh=False, db=db)
+    other_genres_map = {g["genre"].lower(): g["weight"] for g in other_insights.get("top_genres", [])}
+
+    all_genres = set(my_genres_map.keys()) | set(other_genres_map.keys())
+    if not all_genres:
+        return {
+            "score_pct": 50,
+            "shared_genres": [],
+            "shared_artists": [],
+            "message": "Both profiles are newly created. Baseline compatibility estimated at 50%.",
+        }
+
+    # Vector dot product and norms
+    dot_product = sum(my_genres_map.get(g, 0.0) * other_genres_map.get(g, 0.0) for g in all_genres)
+    norm_a = math.sqrt(sum(v * v for v in my_genres_map.values()))
+    norm_b = math.sqrt(sum(v * v for v in other_genres_map.values()))
+
+    if norm_a == 0 or norm_b == 0:
+        sim = 0.5
+    else:
+        sim = dot_product / (norm_a * norm_b)
+
+    score_pct = int(round(sim * 100))
+    shared_genres = [g.title() for g in sorted(all_genres) if my_genres_map.get(g, 0) > 0 and other_genres_map.get(g, 0) > 0]
+
+    return {
+        "score_pct": max(1, min(100, score_pct)),
+        "shared_genres": shared_genres[:5],
+        "shared_artists": [],
+        "message": f"{score_pct}% taste resonance across music and media genres.",
+    }
+
 
 

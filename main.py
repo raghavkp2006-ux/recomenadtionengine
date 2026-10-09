@@ -102,6 +102,7 @@ app.include_router(myntra.router)
 app.include_router(preferences.router)
 app.include_router(feedback.router)
 app.include_router(profile.router)
+app.include_router(profile.public_router)
 
 @app.get("/")
 def read_root():

@@ -16,6 +16,7 @@ import { ControlsTab } from "../components/profile/ControlsTab";
 import { TimelineFeed } from "../components/profile/TimelineFeed";
 import { BridgesPanel } from "../components/profile/BridgesPanel";
 import { TasteTags } from "../components/profile/TasteTags";
+import { ShareTab } from "../components/profile/ShareTab";
 import { Card } from "../components/interchange/Card";
 
 export type ProfileTab =
@@ -184,17 +185,7 @@ export function ProfilePage() {
 
         {activeTab === "controls" && <ControlsTab />}
 
-        {activeTab === "share" && (
-          <Card className="p-12 text-center">
-            <Share2 className="w-8 h-8 text-pink-500 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-              Taste Passport & Sharing
-            </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-md mx-auto mt-1">
-              Generate your public Poly_Taste slug, compare compatibility, and download your taste card.
-            </p>
-          </Card>
-        )}
+        {activeTab === "share" && <ShareTab />}
 
         {activeTab === "data" && (
           <Card className="p-12 text-center">
