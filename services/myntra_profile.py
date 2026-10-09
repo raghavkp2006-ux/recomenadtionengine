@@ -31,6 +31,8 @@ def rebuild_profile(db: Session, user_id: str) -> dict:
     row = db.get(MyntraProfile, user_id)
     if row: row.profile_json = json.dumps(profile, ensure_ascii=False, sort_keys=True)
     else: db.add(MyntraProfile(user_id=user_id, profile_json=json.dumps(profile, ensure_ascii=False, sort_keys=True)))
+    from services.sync_log import log_sync
+    log_sync(db, user_id, "myntra", "ok", items_count=len(recent))
     db.flush(); return profile
 def get_profile(db: Session, user_id: str):
     row = db.get(MyntraProfile, user_id)

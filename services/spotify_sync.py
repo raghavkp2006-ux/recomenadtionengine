@@ -91,6 +91,8 @@ def sync_user_recent_plays(user_id: str) -> Dict[str, Any]:
     try:
         user_row = db.query(SpotifyUser).filter(SpotifyUser.user_id == user_id).first()
         if not user_row or not user_row.sync_enabled:
+            from services.sync_log import log_sync
+            log_sync(db, user_id, "spotify", "needs_reconnect", 0, "sync_disabled")
             return {
                 "user_id": user_id,
                 "new_plays": 0,
@@ -108,6 +110,8 @@ def sync_user_recent_plays(user_id: str) -> Dict[str, Any]:
             print(f"[spotify_sync] Token refresh failed for {user_id}: {e}")
             user_row.sync_enabled = False
             db.commit()
+            from services.sync_log import log_sync
+            log_sync(db, user_id, "spotify", "needs_reconnect", 0, str(e))
             return {
                 "user_id": user_id,
                 "new_plays": 0,
@@ -247,6 +251,9 @@ def sync_user_recent_plays(user_id: str) -> Dict[str, Any]:
             # items were returned by Spotify but all were already in the DB
             status_str = "already_up_to_date"
 
+        from services.sync_log import log_sync
+        log_sync(db, user_id, "spotify", "ok", items_count=new_plays_count)
+
         return {
             "user_id": user_id,
             "new_plays": new_plays_count,
@@ -257,6 +264,11 @@ def sync_user_recent_plays(user_id: str) -> Dict[str, Any]:
     except Exception as e:
         db.rollback()
         print(f"[spotify_sync] sync_user_recent_plays({user_id}): {e}")
+        try:
+            from services.sync_log import log_sync
+            log_sync(db, user_id, "spotify", "error", 0, str(e))
+        except Exception:
+            pass
         return {
             "user_id": user_id,
             "new_plays": 0,

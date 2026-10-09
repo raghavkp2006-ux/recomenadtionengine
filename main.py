@@ -15,6 +15,8 @@ from services.spotify_scheduler import start_scheduler, stop_scheduler
 from pydantic import BaseModel
 from fastapi import HTTPException
 from routers import feedback
+import models.profile
+from services.sync_log import init_profile_tables
 
 
 @asynccontextmanager
@@ -22,6 +24,7 @@ async def lifespan(app: FastAPI):
     # Startup: ensure database schema and tables are created
     print("[main] Running application startup: initializing database schema...")
     tables = init_db()
+    init_profile_tables()
     print(f"[main] Database schema verified on startup. Available tables: {tables}")
     # Startup: launch background scheduler
     print("[main] Starting Spotify background scheduler...")
