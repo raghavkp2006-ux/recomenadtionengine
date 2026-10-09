@@ -4,12 +4,12 @@
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
   "memory": "1024",
-  "executionRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/ecsTaskExecutionRole",
-  "taskRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/ecsTaskRole",
+  "executionRoleArn": "arn:aws:iam::542035162593:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::542035162593:role/ecsTaskRole",
   "containerDefinitions": [
     {
       "name": "recommendation-api",
-      "image": "<AWS_ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/recommendation-api:latest",
+      "image": "542035162593.dkr.ecr.ap-south-1.amazonaws.com/recommendation-api:latest",
       "essential": true,
       "portMappings": [
         {
@@ -21,27 +21,27 @@
       "environment": [
         { "name": "ENV", "value": "production" },
         { "name": "PORT", "value": "8080" },
-        { "name": "FRONTEND_URL", "value": "https://<YOUR_FRONTEND_DOMAIN>" },
-        { "name": "ALLOWED_ORIGINS", "value": "https://<YOUR_FRONTEND_DOMAIN>" },
-        { "name": "GOOGLE_REDIRECT_URI", "value": "https://<YOUR_API_DOMAIN>/auth/google/callback" },
-        { "name": "SPOTIFY_REDIRECT_URI", "value": "https://<YOUR_API_DOMAIN>/spotify/callback" },
-        { "name": "ANILIST_REDIRECT_URI", "value": "https://<YOUR_API_DOMAIN>/anilist/callback" },
+        { "name": "FRONTEND_URL", "value": "https://d1l7jo0szjotpa.cloudfront.net" },
+        { "name": "ALLOWED_ORIGINS", "value": "https://d1l7jo0szjotpa.cloudfront.net,http://recommendation-alb-364635366.ap-south-1.elb.amazonaws.com,http://localhost:5173,http://127.0.0.1:5173" },
+        { "name": "GOOGLE_REDIRECT_URI", "value": "https://d1l7jo0szjotpa.cloudfront.net/auth/google/callback" },
+        { "name": "SPOTIFY_REDIRECT_URI", "value": "https://d1l7jo0szjotpa.cloudfront.net/spotify/callback" },
+        { "name": "ANILIST_REDIRECT_URI", "value": "https://d1l7jo0szjotpa.cloudfront.net/anilist/callback" },
         { "name": "MYNTRA_EVENT_BATCH_SIZE", "value": "25" },
         { "name": "MYNTRA_MAX_BATCH_SIZE", "value": "100" },
         { "name": "MYNTRA_PROFILE_DECAY_LAMBDA", "value": "0.03" },
         { "name": "MYNTRA_DEDUP_WINDOW_SECONDS", "value": "30" }
       ],
       "secrets": [
-        { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:ap-south-1:<AWS_ACCOUNT_ID>:secret:recommendation-api/secrets:DATABASE_URL::" },
-        { "name": "SESSION_SECRET_KEY", "valueFrom": "arn:aws:secretsmanager:ap-south-1:<AWS_ACCOUNT_ID>:secret:recommendation-api/secrets:SESSION_SECRET_KEY::" },
-        { "name": "GOOGLE_CLIENT_ID", "valueFrom": "arn:aws:secretsmanager:ap-south-1:<AWS_ACCOUNT_ID>:secret:recommendation-api/secrets:GOOGLE_CLIENT_ID::" },
-        { "name": "GOOGLE_CLIENT_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-south-1:<AWS_ACCOUNT_ID>:secret:recommendation-api/secrets:GOOGLE_CLIENT_SECRET::" },
-        { "name": "SPOTIFY_CLIENT_ID", "valueFrom": "arn:aws:secretsmanager:ap-south-1:<AWS_ACCOUNT_ID>:secret:recommendation-api/secrets:SPOTIFY_CLIENT_ID::" },
-        { "name": "SPOTIFY_CLIENT_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-south-1:<AWS_ACCOUNT_ID>:secret:recommendation-api/secrets:SPOTIFY_CLIENT_SECRET::" },
-        { "name": "ANILIST_CLIENT_ID", "valueFrom": "arn:aws:secretsmanager:ap-south-1:<AWS_ACCOUNT_ID>:secret:recommendation-api/secrets:ANILIST_CLIENT_ID::" },
-        { "name": "ANILIST_CLIENT_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-south-1:<AWS_ACCOUNT_ID>:secret:recommendation-api/secrets:ANILIST_CLIENT_SECRET::" },
-        { "name": "TMDB_API_KEY", "valueFrom": "arn:aws:secretsmanager:ap-south-1:<AWS_ACCOUNT_ID>:secret:recommendation-api/secrets:TMDB_API_KEY::" },
-        { "name": "YOUTUBE_API_KEY", "valueFrom": "arn:aws:secretsmanager:ap-south-1:<AWS_ACCOUNT_ID>:secret:recommendation-api/secrets:YOUTUBE_API_KEY::" }
+        { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:ap-south-1:542035162593:secret:recommendation-api/secrets-kaibqu:DATABASE_URL::" },
+        { "name": "SESSION_SECRET_KEY", "valueFrom": "arn:aws:secretsmanager:ap-south-1:542035162593:secret:recommendation-api/secrets-kaibqu:SESSION_SECRET_KEY::" },
+        { "name": "GOOGLE_CLIENT_ID", "valueFrom": "arn:aws:secretsmanager:ap-south-1:542035162593:secret:recommendation-api/secrets-kaibqu:GOOGLE_CLIENT_ID::" },
+        { "name": "GOOGLE_CLIENT_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-south-1:542035162593:secret:recommendation-api/secrets-kaibqu:GOOGLE_CLIENT_SECRET::" },
+        { "name": "SPOTIFY_CLIENT_ID", "valueFrom": "arn:aws:secretsmanager:ap-south-1:542035162593:secret:recommendation-api/secrets-kaibqu:SPOTIFY_CLIENT_ID::" },
+        { "name": "SPOTIFY_CLIENT_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-south-1:542035162593:secret:recommendation-api/secrets-kaibqu:SPOTIFY_CLIENT_SECRET::" },
+        { "name": "ANILIST_CLIENT_ID", "valueFrom": "arn:aws:secretsmanager:ap-south-1:542035162593:secret:recommendation-api/secrets-kaibqu:ANILIST_CLIENT_ID::" },
+        { "name": "ANILIST_CLIENT_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-south-1:542035162593:secret:recommendation-api/secrets-kaibqu:ANILIST_CLIENT_SECRET::" },
+        { "name": "TMDB_API_KEY", "valueFrom": "arn:aws:secretsmanager:ap-south-1:542035162593:secret:recommendation-api/secrets-kaibqu:TMDB_API_KEY::" },
+        { "name": "YOUTUBE_API_KEY", "valueFrom": "arn:aws:secretsmanager:ap-south-1:542035162593:secret:recommendation-api/secrets-kaibqu:YOUTUBE_API_KEY::" }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
@@ -52,7 +52,7 @@
         }
       },
       "healthCheck": {
-        "command": ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8080/health\")' || exit 1"],
+        "command": ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/health')\" || exit 1"],
         "interval": 30,
         "timeout": 5,
         "retries": 3,

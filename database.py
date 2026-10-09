@@ -41,7 +41,9 @@ _db_url = _raw_db_url.strip().strip("'\"").strip() if _raw_db_url else None
 _engine = None
 if _db_url:
     if _db_url.startswith("postgres://"):
-        _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+        _db_url = _db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif _db_url.startswith("postgresql://") and not _db_url.startswith("postgresql+"):
+        _db_url = _db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
     try:
         _engine = create_engine(_db_url, pool_pre_ping=True)
     except Exception as e:

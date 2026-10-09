@@ -274,6 +274,27 @@ def _fetch_spotify_genre_profile(
         except Exception as exc:
             print(f"[taste_profile] Import-profile fallback error: {exc}")
 
+    # Fallback 3: infer music taste from cross-domain anime / AniList signals
+    if not profile:
+        try:
+            anilist_signal = _anilist_genre_signal(user_id)
+            anime_signal = _anime_genre_signal(user_id)
+            combined_anime = _merge_profiles(anilist_signal, anime_signal)
+            if combined_anime:
+                reverse_crosswalk: Dict[str, List[str]] = {}
+                for mg, ag_list in GENRE_CROSSWALK.items():
+                    for ag in ag_list:
+                        reverse_crosswalk.setdefault(ag.lower(), []).append(mg)
+                inferred: Dict[str, float] = {}
+                for ag, weight in combined_anime.items():
+                    for mg in reverse_crosswalk.get(ag.lower(), []):
+                        inferred[mg] = inferred.get(mg, 0.0) + (weight * 0.5)
+                if inferred:
+                    profile = dict(sorted(inferred.items(), key=lambda x: x[1], reverse=True))
+                    print(f"[taste_profile] Using cross-domain inferred music profile for {user_id}: {profile}")
+        except Exception as exc:
+            print(f"[taste_profile] Cross-domain music inference error: {exc}")
+
     return profile
 
 
@@ -517,8 +538,8 @@ def compute_taste_profile(
     """
     # --- Gather per-source signals ---
     spotify_profile: Dict[str, float] = {}
-    if spotify_token:
-        raw = _fetch_spotify_genre_profile(user_id, spotify_token)
+    raw = _fetch_spotify_genre_profile(user_id, spotify_token or "")
+    if raw:
         spotify_profile = {k: v * _SPOTIFY_WEIGHT for k, v in raw.items()}
 
     anime_profile = _anime_genre_signal(user_id)
