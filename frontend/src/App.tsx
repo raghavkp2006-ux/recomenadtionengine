@@ -21,6 +21,7 @@ import { TasteProfilePage } from "./pages/TasteProfilePage"
 import { SettingsPage } from "./pages/SettingsPage"
 import { PublicProfilePage } from "./pages/PublicProfilePage"
 import { SignalCard, DOMAIN } from "./components/dashboard/RecommendationRow"
+import { ErrorBoundary } from "./components/ErrorBoundary"
 import type { PageId, Recommendation } from "./types"
 
 // ── Domain accent constants ──────────────────────────────────────────
@@ -291,7 +292,9 @@ function PageWrapper({ title, children }: { title?: string; children: React.Reac
         <ThemeToggleButton />
       </div>
       <div className="flex-1 p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
-        {children}
+        <ErrorBoundary fallbackTitle={`Error loading ${title || "page"}`}>
+          {children}
+        </ErrorBoundary>
       </div>
     </div>
   )
