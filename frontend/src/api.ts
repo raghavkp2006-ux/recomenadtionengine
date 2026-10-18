@@ -15,8 +15,17 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     if (response.status === 401) {
       throw new Error("Unauthorized")
     }
+    const contentType = response.headers.get("content-type") || ""
+    if (!contentType.includes("application/json")) {
+      throw new Error("API returned non-JSON (" + response.status + ") for " + url)
+    }
     const errorData = await response.json().catch(() => ({}))
     throw new Error(errorData.detail || `API error: ${response.status}`)
+  }
+
+  const contentType = response.headers.get("content-type") || ""
+  if (!contentType.includes("application/json")) {
+    throw new Error("API returned non-JSON (" + response.status + ") for " + url)
   }
 
   return response.json()
