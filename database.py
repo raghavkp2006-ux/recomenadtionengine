@@ -24,6 +24,7 @@ Exports
 """
 
 import os
+import json
 import time
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
@@ -399,6 +400,61 @@ def init_db():
         inspector = inspect(_engine)
         tables = inspector.get_table_names()
         print(f"[database] Database tables confirmed present ({_engine.dialect.name}): {tables}")
+
+        # Auto-seed tourist and dining catalogs if empty
+        try:
+            from sqlalchemy.orm import Session
+            with Session(_engine) as session:
+                if "tourist_spots" in tables and session.query(TouristSpot).count() == 0:
+                    json_path = os.path.join(os.path.dirname(__file__), "data", "tourist_spots_chennai.json")
+                    if os.path.exists(json_path):
+                        with open(json_path, "r", encoding="utf-8") as f:
+                            records = json.load(f)
+                        spots = [
+                            TouristSpot(
+                                place_id=r["place_id"],
+                                name=r["name"],
+                                category=r["category"],
+                                description=r.get("description"),
+                                price_tier=r.get("price_tier", "free"),
+                                lat=float(r["lat"]),
+                                lng=float(r["lng"]),
+                                city=r.get("city", "Chennai"),
+                            )
+                            for r in records
+                            if "place_id" in r and "name" in r
+                        ]
+                        session.bulk_save_objects(spots)
+                        session.commit()
+                        print(f"[database] Auto-seeded {len(spots)} tourist spots into {_engine.dialect.name}")
+
+                if "dining_spots" in tables and session.query(DiningSpot).count() == 0:
+                    dining_json = os.path.join(os.path.dirname(__file__), "data", "restaurants_cafes_chennai.json")
+                    if os.path.exists(dining_json):
+                        with open(dining_json, "r", encoding="utf-8") as f:
+                            d_records = json.load(f)
+                        d_spots = [
+                            DiningSpot(
+                                place_id=r["place_id"],
+                                name=r["name"],
+                                category=r.get("category", "restaurant"),
+                                description=r.get("description"),
+                                price_tier=r.get("price_tier"),
+                                cuisine=r.get("cuisine"),
+                                lat=float(r["lat"]),
+                                lng=float(r["lng"]),
+                                city=r.get("city", "Chennai"),
+                                osm_id=r.get("osm_id"),
+                            )
+                            for r in d_records
+                            if "place_id" in r and "name" in r
+                        ]
+                        session.bulk_save_objects(d_spots)
+                        session.commit()
+                        print(f"[database] Auto-seeded {len(d_spots)} dining spots into {_engine.dialect.name}")
+        except Exception as seed_err:
+            print(f"[database] Notice: catalog auto-seed check skipped: {seed_err}")
+
         return tables
     except Exception as e:
         print(f"[database] Warning: Failed to inspect table names: {e}")
