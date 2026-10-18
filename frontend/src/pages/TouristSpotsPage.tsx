@@ -21,6 +21,7 @@ import { Button, Input } from "../components/ui"
 import { cn } from "@/lib/utils"
 
 const CATEGORIES = [
+  { id: "recommended", label: "Recommended for You" },
   { id: "all", label: "All Spots" },
   { id: "adventure_outdoor", label: "Adventure & Outdoor" },
   { id: "cultural_historic", label: "Cultural & Historic" },
@@ -32,7 +33,7 @@ const CATEGORIES = [
 
 export function TouristSpotsPage() {
   const [spots, setSpots] = useState<TouristSpot[]>([])
-  const [selectedCategory, setSelectedCategory] = useState<string>("all")
+  const [selectedCategory, setSelectedCategory] = useState<string>("recommended")
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
@@ -53,21 +54,46 @@ export function TouristSpotsPage() {
     setLoading(true)
     setError(null)
 
-    const categoryParam = selectedCategory === "all" ? undefined : selectedCategory
-    api.touristSpots
-      .getAll(categoryParam)
-      .then((data) => {
-        if (isMounted) {
-          setSpots(data || [])
-          setLoading(false)
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          setError(err.message || "Failed to load tourist spots.")
-          setLoading(false)
-        }
-      })
+    if (selectedCategory === "recommended") {
+      api.touristSpots
+        .getRecommendedSpots(30)
+        .then((data) => {
+          if (isMounted) {
+            setSpots(data && data.length > 0 ? data : [])
+            setLoading(false)
+          }
+        })
+        .catch((err) => {
+          // Graceful fallback to all spots if not logged in
+          api.touristSpots.getAll().then((allData) => {
+            if (isMounted) {
+              setSpots(allData || [])
+              setLoading(false)
+            }
+          }).catch(() => {
+            if (isMounted) {
+              setError(err.message || "Failed to load tourist spots.")
+              setLoading(false)
+            }
+          })
+        })
+    } else {
+      const categoryParam = selectedCategory === "all" ? undefined : selectedCategory
+      api.touristSpots
+        .getAll(categoryParam)
+        .then((data) => {
+          if (isMounted) {
+            setSpots(data || [])
+            setLoading(false)
+          }
+        })
+        .catch((err) => {
+          if (isMounted) {
+            setError(err.message || "Failed to load tourist spots.")
+            setLoading(false)
+          }
+        })
+    }
 
     return () => {
       isMounted = false
@@ -219,19 +245,25 @@ export function TouristSpotsPage() {
         <div className="flex items-center gap-2 overflow-x-auto pb-2 pt-1 scrollbar-hide">
           {CATEGORIES.map((cat) => {
             const isSelected = selectedCategory === cat.id
+            const isRec = cat.id === "recommended"
             return (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
                 className={cn(
-                  "px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 shrink-0",
+                  "flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 shrink-0 cursor-pointer",
                   isSelected
-                    ? "bg-[#E3A857] text-[#10141B] font-semibold shadow-[0_0_12px_rgba(227,168,87,0.35)]"
+                    ? isRec
+                      ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold shadow-[0_0_14px_rgba(245,158,11,0.4)]"
+                      : "bg-[#E3A857] text-[#10141B] font-semibold shadow-[0_0_12px_rgba(227,168,87,0.35)]"
+                    : isRec
+                    ? "bg-amber-500/10 text-amber-500 border border-amber-500/30 hover:bg-amber-500/20"
                     : "bg-black/5 dark:bg-white/5 text-muted-foreground hover:text-foreground hover:bg-black/10 dark:hover:bg-white/10 border border-transparent hover:border-black/10 dark:hover:border-white/10"
                 )}
                 style={{ fontFamily: fontFamily.body }}
               >
-                {cat.label}
+                {isRec && <Sparkles className="w-3.5 h-3.5" />}
+                <span>{cat.label}</span>
               </button>
             )
           })}
@@ -305,9 +337,9 @@ export function TouristSpotsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredSpots.map((spot) => (
+          {filteredSpots.map((spot, index) => (
             <SpotCard
-              key={spot.place_id}
+              key={spot.place_id || `spot-${index}`}
               spot={spot}
               feedback={feedbackMap[spot.place_id]}
               isTagInputOpen={tagInputPlaceId === spot.place_id}
@@ -352,11 +384,12 @@ function SpotCard({
   onTagCancel,
 }: SpotCardProps) {
   const categoryLabel =
-    CATEGORIES.find((c) => c.id === spot.category)?.label || spot.category
+    CATEGORIES.find((c) => c.id === spot.category)?.label || spot.category || "General"
 
   // Price tier styling
   const priceTierBadge = () => {
-    switch (spot.price_tier.toLowerCase()) {
+    const tier = (spot.price_tier || "").toLowerCase()
+    switch (tier) {
       case "free":
         return (
           <span className="px-2 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider font-semibold border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">
@@ -378,7 +411,7 @@ function SpotCard({
       default:
         return (
           <span className="px-2 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider text-muted-foreground border border-black/10 dark:border-white/10">
-            {spot.price_tier}
+            {spot.price_tier || "Standard"}
           </span>
         )
     }

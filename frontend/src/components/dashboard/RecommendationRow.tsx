@@ -144,6 +144,8 @@ export function SignalCard({
 }) {
   const handleClick = () => {
     if (category === "anime") onNavigate("anime")
+    else if (category === "places") onNavigate("places")
+    else if (category === "movie") onNavigate("movies")
     else                      onNavigate("music")
   }
 

@@ -312,6 +312,8 @@ export const api = {
       const qs = params.toString() ? `?${params.toString()}` : ""
       return fetchApi<import("./types").TouristSpot[]>(`/tourist-spots${qs}`)
     },
+    getRecommendedSpots: (limit = 30) =>
+      fetchApi<import("./types").TouristSpot[]>(`/tourist-spots/recommendations?limit=${limit}`),
     getRecommendations: async (limit = 20): Promise<import("./types").Recommendation[]> => {
       try {
         const spots = await fetchApi<import("./types").TouristSpot[]>(`/tourist-spots/recommendations?limit=${limit}`);
