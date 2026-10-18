@@ -62,3 +62,7 @@ scratch_taste.py
 apply_dark_mode.py
 # Spotify streaming history exports (contain IP addresses)
 **/Streaming_History_*.json
+
+# IDE and scratch directories
+.vscode/
+scratch/
