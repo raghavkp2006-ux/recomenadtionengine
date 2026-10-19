@@ -24,6 +24,8 @@ wheels/
 *.egg
 .env
 .env.*
+!frontend/.env.development
+!frontend/.env.production
 !.env.example
 venv/
 .venv/
