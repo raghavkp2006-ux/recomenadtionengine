@@ -34,6 +34,7 @@ from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, 
 from sqlalchemy.orm import sessionmaker, relationship
 from models.base import Base
 from models.myntra import MyntraConnection, MyntraEvent, MyntraFeedback, MyntraProduct, MyntraProfile
+from models.profile import PublicProfile, SyncLog, TasteControls
 
 load_dotenv()
 
