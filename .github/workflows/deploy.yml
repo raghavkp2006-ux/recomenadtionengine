@@ -39,7 +39,7 @@ jobs:
 
       - name: Run Smoke Tests
         run: |
-          pytest tests/test_myntra_schemas.py tests/test_anime_recommender.py -v
+          python -m pytest tests/test_myntra_schemas.py tests/test_anime_recommender.py -v
 
   build-and-deploy-backend:
     name: Build & Deploy Backend (ECR + ECS Fargate)
